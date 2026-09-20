@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Camera Vehicle Dodge</title>
+
+<!-- AI chạy trong browser -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+
+<style>
+*{box-sizing:border-box}
+html,body{
+  margin:0;width:100%;height:100%;overflow:hidden;
+  background:#000;color:#fff;font-family:Arial,sans-serif;
+  touch-action:none;
+}
+#app{position:relative;width:100%;height:100%;overflow:hidden;background:#000}
+#cam{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;background:#000;
+}
+#cv{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+#menuToggle{
+  position:absolute;z-index:6;left:8px;top:8px;
+  width:44px;height:44px;padding:0;
+  border:1px solid #fff;background:rgba(0,0,0,.72);color:#fff;
+  font-size:24px;line-height:1;
+}
+#top{
+  position:absolute;z-index:5;left:8px;right:8px;top:60px;
+  display:flex;gap:6px;flex-wrap:wrap;pointer-events:none;
+  transition:opacity .15s ease, transform .15s ease;
+}
+#top.menu-hidden{
+  opacity:0;
+  transform:translateY(-8px);
+  pointer-events:none;
+}
+#top.menu-hidden button,
+#top.menu-hidden .badge{
+  pointer-events:none;
+}
+button,.badge{
+  border:1px solid #fff;background:rgba(0,0,0,.72);color:#fff;
+  min-height:40px;padding:7px 10px;font-size:13px
+}
+button{pointer-events:auto}
+button:active{background:#fff;color:#000}
+.sizeControl{
+  pointer-events:auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-height:40px;
+  padding:6px 8px;
+  border:1px solid #fff;
+  background:rgba(0,0,0,.72);
+  color:#fff;
+  font-size:12px;
+}
+.sizeControl input[type="range"]{
+  width:110px;
+}
+.sizeControl span{
+  min-width:28px;
+  text-align:right;
+}
+.badge{pointer-events:none;display:flex;align-items:center}
+#msg{
+  position:absolute;z-index:4;left:10px;right:10px;top:114px;
+  text-align:center;font-size:13px;text-shadow:0 1px 3px #000;
+  pointer-events:none
+}
+#controls{
+  position:absolute;z-index:5;bottom:12px;left:0;right:0;
+  display:flex;justify-content:center;pointer-events:none
+}
+.dpad{
+  display:grid;grid-template-columns:56px 56px 56px;
+  grid-template-rows:56px 56px 56px;gap:5px;pointer-events:auto
+}
+.dpad button{
+  width:56px;height:56px;padding:0;font-size:22px;font-weight:bold;
+  background:rgba(0,0,0,.60);touch-action:none
+}
+.hide{visibility:hidden}
+#gameover{
+  position:absolute;z-index:10;inset:0;background:rgba(0,0,0,.72);
+  display:none;align-items:center;justify-content:center;text-align:center
+}
+#gameover .box{border:2px solid #fff;background:#000;padding:24px;min-width:220px}
+#gameover h1{margin:0 0 12px;font-size:32px}
+#debug{
+  position:absolute;z-index:4;right:8px;bottom:190px;
+  background:rgba(0,0,0,.65);border:1px solid #fff;padding:6px 8px;
+  font-size:11px;line-height:1.35;pointer-events:none
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <video id="cam" autoplay playsinline muted></video>
+  <canvas id="cv"></canvas>
+
+  <button id="menuToggle" aria-label="Mở menu">☰</button>
+
+  <div id="top" class="menu-hidden">
+    <button id="cameraBtn">Camera</button>
+    <button id="zoneBtn">Khóa vùng</button>
+    <button id="resetZoneBtn">Reset vùng</button>
+    <button id="restartBtn">Restart</button>
+
+    <label class="sizeControl">
+      W
+      <input id="playerW" type="range" min="12" max="120" step="1" value="28">
+      <span id="playerWVal">28</span>
+    </label>
+
+    <label class="sizeControl">
+      H
+      <input id="playerH" type="range" min="12" max="160" step="1" value="42">
+      <span id="playerHVal">42</span>
+    </label>
+
+    <div class="badge" id="aiState">AI: loading...</div>
+  </div>
+
+  <div id="msg"></div>
+
+  <div id="debug">
+    Điểm: <span id="score">0</span><br>
+    FPS AI: <span id="fpsAI">0</span><br>
+    Xe: <span id="vehicleCount">0</span><br>
+    Nguy hiểm: <span id="dangerCount">0</span>
+  </div>
+
+  <div id="controls">
+    <div class="dpad">
+      <button class="hide"></button>
+      <button data-dir="up">↑</button>
+      <button class="hide"></button>
+      <button data-dir="left">←</button>
+      <button class="hide"></button>
+      <button data-dir="right">→</button>
+      <button class="hide"></button>
+      <button data-dir="down">↓</button>
+      <button class="hide"></button>
+    </div>
+  </div>
+
+  <div id="gameover">
+    <div class="box">
+      <h1>GAME OVER</h1>
+      <div id="finalScore">Score: 0</div><br>
+      <button id="gameoverRestart">Chơi lại</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+const video = document.getElementById('cam');
+const canvas = document.getElementById('cv');
+const ctx = canvas.getContext('2d');
+
+const menuToggle = document.getElementById('menuToggle');
+const topMenu = document.getElementById('top');
+const cameraBtn = document.getElementById('cameraBtn');
+const zoneBtn = document.getElementById('zoneBtn');
+const resetZoneBtn = document.getElementById('resetZoneBtn');
+const restartBtn = document.getElementById('restartBtn');
+
+const playerWInput = document.getElementById('playerW');
+const playerHInput = document.getElementById('playerH');
+const playerWVal = document.getElementById('playerWVal');
+const playerHVal = document.getElementById('playerHVal');
+const aiState = document.getElementById('aiState');
+const scoreEl = document.getElementById('score');
+const msg = document.getElementById('msg');
+const fpsAIEl = document.getElementById('fpsAI');
+const vehicleCountEl = document.getElementById('vehicleCount');
+const dangerCountEl = document.getElementById('dangerCount');
+const gameoverEl = document.getElementById('gameover');
+const finalScoreEl = document.getElementById('finalScore');
+const gameoverRestart = document.getElementById('gameoverRestart');
+
+let DPR = Math.max(1, Math.min(devicePixelRatio || 1, 2));
+let W = 0, H = 0;
+
+let model = null;
+let cameraReady = false;
+let modelReady = false;
+let detecting = false;
+let running = true;
+
+let zoneEdit = true;
+let dragPoint = -1;
+const HANDLE_R = 15;
+
+let zone = [];
+
+const player = {
+  x: 0,
+  y: 0,
+  w: 28,
+  h: 42,
+  speed: 250
+};
+
+const keys = { left:false, right:false, up:false, down:false };
+
+const VEHICLE_CLASSES = new Set(['car','truck','bus','motorcycle']);
+
+let detections = [];
+let tracks = new Map();
+let nextTrackId = 1;
+let score = 0;
+
+// Canvas ẩn dành riêng cho AI.
+// Chỉ vùng polygon 4 điểm được vẽ vào đây; phần ngoài vùng = màu đen.
+const aiCanvas = document.createElement('canvas');
+const aiCtx = aiCanvas.getContext('2d');
+
+let lastDetectionTime = 0;
+let aiFrames = 0;
+let aiFpsWindowStart = performance.now();
+let aiFPS = 0;
+
+// ==================== CAMERA ====================
+
+async function openCamera() {
+  try {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('getUserMedia không được hỗ trợ');
+    }
+
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio:false,
+      video:{
+        facingMode:{ideal:'environment'},
+        width:{ideal:1280},
+        height:{ideal:720}
+      }
+    });
+
+    video.srcObject = stream;
+
+    await new Promise(resolve => {
+      if (video.readyState >= 2) resolve();
+      else video.onloadedmetadata = () => resolve();
+    });
+
+    await video.play();
+
+    cameraReady = true;
+    cameraBtn.textContent = 'Camera ON';
+    msg.textContent = modelReady
+      ? 'Camera + AI sẵn sàng.'
+      : 'Camera sẵn sàng, đang tải AI...';
+
+  } catch (err) {
+    console.error(err);
+    cameraReady = false;
+    msg.textContent =
+      'Không mở được camera. Hãy cấp quyền camera và chạy bằng HTTPS hoặc localhost.';
+  }
+}
+
+// ==================== AI MODEL ====================
+
+async function loadAI() {
+  try {
+    aiState.textContent = 'AI: loading...';
+
+    if (!window.tf || !window.cocoSsd) {
+      throw new Error('Không tải được TensorFlow.js / COCO-SSD');
+    }
+
+    try {
+      await tf.setBackend('webgl');
+    } catch (_) {}
+
+    await tf.ready();
+
+    model = await cocoSsd.load({
+      base: 'lite_mobilenet_v2'
+    });
+
+    modelReady = true;
+    aiState.textContent = 'AI: READY';
+
+    if (cameraReady) msg.textContent = 'Camera + AI sẵn sàng.';
+    startDetectionLoop();
+
+  } catch (err) {
+    console.error(err);
+    aiState.textContent = 'AI: ERROR';
+    msg.textContent = 'Không tải được model AI. Kiểm tra kết nối Internet.';
+  }
+}
+
+// ============== VIDEO -> SCREEN TRANSFORM ==============
+// video dùng object-fit: cover nên bbox AI phải đổi sang tọa độ màn hình.
+
+function videoToScreenRect(bbox) {
+  const vw = video.videoWidth || 1;
+  const vh = video.videoHeight || 1;
+
+  const scale = Math.max(W / vw, H / vh);
+  const shownW = vw * scale;
+  const shownH = vh * scale;
+
+  const offsetX = (W - shownW) / 2;
+  const offsetY = (H - shownH) / 2;
+
+  return {
+    x: bbox[0] * scale + offsetX,
+    y: bbox[1] * scale + offsetY,
+    w: bbox[2] * scale,
+    h: bbox[3] * scale
+  };
+}
+
+
+function screenToVideoPoint(p) {
+  const vw = video.videoWidth || 1;
+  const vh = video.videoHeight || 1;
+
+  const scale = Math.max(W / vw, H / vh);
+  const shownW = vw * scale;
+  const shownH = vh * scale;
+
+  const offsetX = (W - shownW) / 2;
+  const offsetY = (H - shownH) / 2;
+
+  return {
+    x: (p.x - offsetX) / scale,
+    y: (p.y - offsetY) / scale
+  };
+}
+
+function rectIntersectsZone(r) {
+  // Tâm bbox nằm trong vùng.
+  if (pointInPolygon(r.x + r.w/2, r.y + r.h/2, zone)) return true;
+
+  // 4 góc bbox nằm trong vùng.
+  const corners = [
+    {x:r.x,     y:r.y},
+    {x:r.x+r.w, y:r.y},
+    {x:r.x+r.w, y:r.y+r.h},
+    {x:r.x,     y:r.y+r.h}
+  ];
+  if (corners.some(p => pointInPolygon(p.x, p.y, zone))) return true;
+
+  // Điểm polygon nằm trong bbox.
+  if (zone.some(p =>
+    p.x >= r.x && p.x <= r.x+r.w &&
+    p.y >= r.y && p.y <= r.y+r.h
+  )) return true;
+
+  // Kiểm tra cạnh bbox cắt cạnh polygon.
+  const rectEdges = [
+    [corners[0], corners[1]],
+    [corners[1], corners[2]],
+    [corners[2], corners[3]],
+    [corners[3], corners[0]]
+  ];
+
+  for (let i=0; i<zone.length; i++) {
+    const a = zone[i];
+    const b = zone[(i+1)%zone.length];
+    for (const [c,d] of rectEdges) {
+      if (segmentsIntersect(a,b,c,d)) return true;
+    }
+  }
+
+  return false;
+}
+
+function segmentsIntersect(a,b,c,d) {
+  const cross = (p,q,r) =>
+    (q.x-p.x)*(r.y-p.y) - (q.y-p.y)*(r.x-p.x);
+
+  const c1 = cross(a,b,c);
+  const c2 = cross(a,b,d);
+  const c3 = cross(c,d,a);
+  const c4 = cross(c,d,b);
+
+  return ((c1 === 0 || c2 === 0 || c1*c2 < 0) &&
+          (c3 === 0 || c4 === 0 || c3*c4 < 0));
+}
+
+function drawAIRegion() {
+  const vw = video.videoWidth || 0;
+  const vh = video.videoHeight || 0;
+  if (!vw || !vh || zone.length !== 4) return false;
+
+  if (aiCanvas.width !== vw || aiCanvas.height !== vh) {
+    aiCanvas.width = vw;
+    aiCanvas.height = vh;
+  }
+
+  aiCtx.save();
+
+  // Ngoài polygon luôn đen.
+  aiCtx.fillStyle = '#000';
+  aiCtx.fillRect(0,0,vw,vh);
+
+  // Chỉ clip đúng vùng 4 điểm rồi vẽ camera vào.
+  const vz = zone.map(screenToVideoPoint);
+
+  aiCtx.beginPath();
+  aiCtx.moveTo(vz[0].x, vz[0].y);
+  for (let i=1; i<vz.length; i++) {
+    aiCtx.lineTo(vz[i].x, vz[i].y);
+  }
+  aiCtx.closePath();
+  aiCtx.clip();
+
+  aiCtx.drawImage(video, 0, 0, vw, vh);
+  aiCtx.restore();
+
+  return true;
+}
+
+// ==================== DETECTION ====================
+
+async function detectOnce() {
+  if (!modelReady || !cameraReady || detecting || !running) return;
+  if (video.readyState < 2) return;
+
+  detecting = true;
+
+  try {
+    if (!drawAIRegion()) return;
+
+    // Model chỉ nhìn thấy phần camera nằm trong polygon 4 điểm.
+    const preds = await model.detect(aiCanvas, 20, 0.35);
+
+    const now = performance.now();
+
+    detections = preds
+      .filter(p => VEHICLE_CLASSES.has(p.class))
+      .map(p => {
+        const r = videoToScreenRect(p.bbox);
+        return {
+          className:p.class,
+          confidence:p.score,
+          ...r
+        };
+      })
+      // Lọc lần 2 để chắc chắn bbox phải thực sự giao với vùng chơi.
+      .filter(rectIntersectsZone);
+
+    updateTracks(detections, now);
+
+    aiFrames++;
+    if (now - aiFpsWindowStart >= 1000) {
+      aiFPS = aiFrames * 1000 / (now - aiFpsWindowStart);
+      aiFrames = 0;
+      aiFpsWindowStart = now;
+      fpsAIEl.textContent = aiFPS.toFixed(1);
+    }
+
+    vehicleCountEl.textContent = String(detections.length);
+    lastDetectionTime = now;
+
+  } catch (err) {
+    console.error('detect error', err);
+  } finally {
+    detecting = false;
+  }
+}
+
+function startDetectionLoop() {
+  const tick = async () => {
+    if (running && modelReady && cameraReady) {
+      await detectOnce();
+    }
+    setTimeout(tick, 80);
+  };
+  tick();
+}
+
+// ==================== TRACKING ====================
+
+function rectIoU(a,b) {
+  const x1 = Math.max(a.x,b.x);
+  const y1 = Math.max(a.y,b.y);
+  const x2 = Math.min(a.x+a.w,b.x+b.w);
+  const y2 = Math.min(a.y+a.h,b.y+b.h);
+
+  const iw = Math.max(0,x2-x1);
+  const ih = Math.max(0,y2-y1);
+  const inter = iw*ih;
+  const union = a.w*a.h + b.w*b.h - inter;
+
+  return union > 0 ? inter/union : 0;
+}
+
+function centerDistance(a,b) {
+  const ax=a.x+a.w/2, ay=a.y+a.h/2;
+  const bx=b.x+b.w/2, by=b.y+b.h/2;
+  return Math.hypot(ax-bx,ay-by);
+}
+
+function updateTracks(newDetections, now) {
+  const available = [...tracks.values()].filter(t => now - t.lastSeen < 1000);
+  const used = new Set();
+
+  for (const d of newDetections) {
+    let best = null;
+    let bestScore = -Infinity;
+
+    for (const t of available) {
+      if (used.has(t.id)) continue;
+      if (t.className !== d.className) continue;
+
+      const iou = rectIoU(t,d);
+      const dist = centerDistance(t,d);
+      const maxDim = Math.max(W,H);
+      const proximity = 1 - Math.min(dist/maxDim,1);
+
+      const matchScore = iou*2 + proximity*0.45;
+
+      if ((iou > 0.12 || dist < Math.max(d.w,d.h)*0.8) && matchScore > bestScore) {
+        bestScore = matchScore;
+        best = t;
+      }
+    }
+
+    if (!best) {
+      best = {
+        id:nextTrackId++,
+        className:d.className,
+        x:d.x,y:d.y,w:d.w,h:d.h,
+        lastSeen:now,
+        history:[],
+        approaching:false,
+        danger:false,
+        counted:false
+      };
+      tracks.set(best.id,best);
+    } else {
+      used.add(best.id);
+    }
+
+    const area = d.w*d.h;
+    const bottom = d.y+d.h;
+
+    best.history.push({time:now,area,bottom,cx:d.x+d.w/2});
+    if (best.history.length > 8) best.history.shift();
+
+    best.x=d.x;
+    best.y=d.y;
+    best.w=d.w;
+    best.h=d.h;
+    best.confidence=d.confidence;
+    best.lastSeen=now;
+
+    analyzeTrack(best);
+  }
+
+  for (const [id,t] of tracks) {
+    if (now - t.lastSeen > 1200) {
+      if (t.approaching && !t.counted && running) {
+        score++;
+        scoreEl.textContent = String(score);
+      }
+      tracks.delete(id);
+    }
+  }
+
+  let dangerCount = 0;
+  for (const t of tracks.values()) {
+    if (t.danger && now - t.lastSeen < 400) dangerCount++;
+  }
+  dangerCountEl.textContent = String(dangerCount);
+}
+
+function analyzeTrack(t) {
+  const h = t.history;
+  if (h.length < 3) {
+    t.approaching = false;
+    t.danger = false;
+    return;
+  }
+
+  const old = h[Math.max(0,h.length-5)];
+  const cur = h[h.length-1];
+
+  const areaGrowth = old.area > 1 ? cur.area / old.area : 1;
+  const bottomMove = cur.bottom - old.bottom;
+
+  // Heuristic:
+  // bbox lớn nhanh và/hoặc cạnh dưới đi xuống -> có xu hướng tiến gần.
+  t.approaching =
+    areaGrowth > 1.10 ||
+    (areaGrowth > 1.04 && bottomMove > 5);
+
+  const screenAreaRatio = cur.area / Math.max(1,W*H);
+  const lowEnough = cur.bottom > H*0.48;
+
+  t.danger =
+    t.approaching &&
+    lowEnough &&
+    (screenAreaRatio > 0.012 || cur.bottom > H*0.72);
+
+  if (t.danger) checkCollision(t);
+}
+
+// ==================== COLLISION ====================
+
+function playerRect() {
+  return {
+    x:player.x-player.w/2,
+    y:player.y-player.h/2,
+    w:player.w,
+    h:player.h
+  };
+}
+
+function rectOverlap(a,b) {
+  return !(
+    a.x+a.w < b.x ||
+    b.x+b.w < a.x ||
+    a.y+a.h < b.y ||
+    b.y+b.h < a.y
+  );
+}
+
+function checkCollision(track) {
+  if (!running) return;
+
+  const p = playerRect();
+
+  // Collision thực tế dựa trên overlap bbox xe đã map lên màn hình.
+  // Thu bbox xe vào nhẹ để giảm false-positive.
+  const insetX = track.w*0.12;
+  const insetY = track.h*0.08;
+
+  const car = {
+    x:track.x+insetX,
+    y:track.y+insetY,
+    w:Math.max(1,track.w-insetX*2),
+    h:Math.max(1,track.h-insetY*2)
+  };
+
+  if (rectOverlap(p,car)) {
+    gameOver();
+  }
+}
+
+function gameOver() {
+  if (!running) return;
+  running = false;
+  finalScoreEl.textContent = 'Score: '+score;
+  gameoverEl.style.display = 'flex';
+}
+
+function restartGame() {
+  score = 0;
+  scoreEl.textContent = '0';
+  tracks.clear();
+  detections = [];
+  running = true;
+  gameoverEl.style.display = 'none';
+  const c = polygonCenter(zone);
+  player.x=c.x;
+  player.y=c.y;
+  keepPlayerInside();
+}
+
+// ==================== ZONE ====================
+
+function resetZone() {
+  zone = [
+    {x:W*.35,y:H*.28},
+    {x:W*.65,y:H*.28},
+    {x:W*.82,y:H*.74},
+    {x:W*.18,y:H*.74}
+  ];
+  const c=polygonCenter(zone);
+  player.x=c.x;
+  player.y=c.y;
+  keepPlayerInside();
+}
+
+function polygonCenter(poly) {
+  let x=0,y=0;
+  for(const p of poly){x+=p.x;y+=p.y}
+  return {x:x/poly.length,y:y/poly.length};
+}
+
+function pointInPolygon(x,y,poly) {
+  let inside=false;
+  for(let i=0,j=poly.length-1;i<poly.length;j=i++){
+    const xi=poly[i].x, yi=poly[i].y;
+    const xj=poly[j].x, yj=poly[j].y;
+    const hit=((yi>y)!==(yj>y)) &&
+      (x<(xj-xi)*(y-yi)/((yj-yi)||0.000001)+xi);
+    if(hit) inside=!inside;
+  }
+  return inside;
+}
+
+function playerCorners(x=player.x,y=player.y) {
+  const hw=player.w/2, hh=player.h/2;
+  return [
+    {x:x-hw,y:y-hh},
+    {x:x+hw,y:y-hh},
+    {x:x+hw,y:y+hh},
+    {x:x-hw,y:y+hh}
+  ];
+}
+
+function playerInside(x,y) {
+  return playerCorners(x,y).every(p=>pointInPolygon(p.x,p.y,zone));
+}
+
+function keepPlayerInside() {
+  if(playerInside(player.x,player.y)) return;
+  const c=polygonCenter(zone);
+
+  for(let i=1;i<=100;i++){
+    const t=i/100;
+    const x=player.x+(c.x-player.x)*t;
+    const y=player.y+(c.y-player.y)*t;
+    if(playerInside(x,y)){
+      player.x=x;player.y=y;return;
+    }
+  }
+  player.x=c.x;player.y=c.y;
+}
+
+function tryMove(dx,dy) {
+  const nx=player.x+dx, ny=player.y+dy;
+
+  if(playerInside(nx,ny)){
+    player.x=nx;player.y=ny;return;
+  }
+  if(playerInside(nx,player.y)) player.x=nx;
+  if(playerInside(player.x,ny)) player.y=ny;
+}
+
+// ==================== DRAW ====================
+
+function drawZone() {
+  if(zone.length!==4)return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(zone[0].x,zone[0].y);
+  for(let i=1;i<zone.length;i++)ctx.lineTo(zone[i].x,zone[i].y);
+  ctx.closePath();
+
+  ctx.fillStyle='rgba(255,255,255,.055)';
+  ctx.fill();
+  ctx.strokeStyle='#fff';
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  if(zoneEdit){
+    zone.forEach((p,i)=>{
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,HANDLE_R,0,Math.PI*2);
+      ctx.fillStyle='#000';
+      ctx.fill();
+      ctx.strokeStyle='#fff';
+      ctx.lineWidth=3;
+      ctx.stroke();
+
+      ctx.fillStyle='#fff';
+      ctx.font='12px Arial';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(String(i+1),p.x,p.y);
+    });
+  }
+  ctx.restore();
+}
+
+function drawPlayer() {
+  const r=playerRect();
+  ctx.save();
+  ctx.fillStyle='#fff';
+  ctx.fillRect(r.x,r.y,r.w,r.h);
+  ctx.strokeStyle='#000';
+  ctx.lineWidth=2;
+  ctx.strokeRect(r.x,r.y,r.w,r.h);
+  ctx.restore();
+}
+
+function drawTracks() {
+  const now=performance.now();
+
+  for(const t of tracks.values()){
+    if(now-t.lastSeen>450)continue;
+
+    ctx.save();
+
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=t.danger?4:2;
+    ctx.setLineDash(t.approaching?[8,5]:[]);
+    ctx.strokeRect(t.x,t.y,t.w,t.h);
+
+    const label =
+      `${t.className} ${Math.round((t.confidence||0)*100)}%` +
+      (t.danger?'  DANGER':t.approaching?'  approaching':'');
+
+    ctx.font='12px Arial';
+    const tw=ctx.measureText(label).width+10;
+    const ly=Math.max(0,t.y-22);
+
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(0,0,0,.82)';
+    ctx.fillRect(t.x,ly,tw,22);
+    ctx.fillStyle='#fff';
+    ctx.textAlign='left';
+    ctx.textBaseline='middle';
+    ctx.fillText(label,t.x+5,ly+11);
+
+    if(t.approaching){
+      const cx=t.x+t.w/2;
+      const by=t.y+t.h;
+      ctx.beginPath();
+      ctx.moveTo(cx,by);
+      ctx.lineTo(cx,Math.min(H,by+35));
+      ctx.strokeStyle='#fff';
+      ctx.lineWidth=2;
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+}
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  drawTracks();
+  drawZone();
+  drawPlayer();
+}
+
+// ==================== INPUT ====================
+
+function pointerPos(e){
+  const r=canvas.getBoundingClientRect();
+  return {x:e.clientX-r.left,y:e.clientY-r.top};
+}
+
+canvas.addEventListener('pointerdown',e=>{
+  if(!zoneEdit)return;
+  const p=pointerPos(e);
+
+  let best=-1,bestD=Infinity;
+  zone.forEach((z,i)=>{
+    const d=Math.hypot(p.x-z.x,p.y-z.y);
+    if(d<bestD && d<HANDLE_R*2.2){best=i;bestD=d}
+  });
+
+  if(best>=0){
+    dragPoint=best;
+    canvas.setPointerCapture(e.pointerId);
+  }
+});
+
+canvas.addEventListener('pointermove',e=>{
+  if(!zoneEdit || dragPoint<0)return;
+  const p=pointerPos(e);
+
+  zone[dragPoint].x=clamp(p.x,HANDLE_R,W-HANDLE_R);
+  zone[dragPoint].y=clamp(p.y,HANDLE_R,H-HANDLE_R);
+  keepPlayerInside();
+
+  // Vùng quét đã đổi: bỏ track cũ để không giữ xe ngoài vùng mới.
+  tracks.clear();
+  detections = [];
+});
+
+function endDrag(e){
+  dragPoint=-1;
+  try{canvas.releasePointerCapture(e.pointerId)}catch(_){}
+}
+canvas.addEventListener('pointerup',endDrag);
+canvas.addEventListener('pointercancel',endDrag);
+
+document.querySelectorAll('[data-dir]').forEach(btn=>{
+  const d=btn.dataset.dir;
+
+  btn.addEventListener('pointerdown',e=>{
+    e.preventDefault();
+    keys[d]=true;
+    btn.setPointerCapture(e.pointerId);
+  });
+
+  const off=e=>{
+    e.preventDefault();
+    keys[d]=false;
+    try{btn.releasePointerCapture(e.pointerId)}catch(_){}
+  };
+
+  btn.addEventListener('pointerup',off);
+  btn.addEventListener('pointercancel',off);
+});
+
+const keyMap={
+  ArrowLeft:'left',ArrowRight:'right',
+  ArrowUp:'up',ArrowDown:'down',
+  a:'left',d:'right',w:'up',s:'down',
+  A:'left',D:'right',W:'up',S:'down'
+};
+
+addEventListener('keydown',e=>{
+  const d=keyMap[e.key];
+  if(!d)return;
+  e.preventDefault();
+  keys[d]=true;
+});
+
+addEventListener('keyup',e=>{
+  const d=keyMap[e.key];
+  if(!d)return;
+  e.preventDefault();
+  keys[d]=false;
+});
+
+// ==================== BUTTONS ====================
+
+menuToggle.addEventListener('click',()=>{
+  const hidden = topMenu.classList.toggle('menu-hidden');
+  menuToggle.textContent = hidden ? '☰' : '×';
+  menuToggle.setAttribute('aria-label', hidden ? 'Mở menu' : 'Đóng menu');
+});
+
+function applyPlayerSize() {
+  const w = clamp(Number(playerWInput.value) || 28, 12, 120);
+  const h = clamp(Number(playerHInput.value) || 42, 12, 160);
+
+  player.w = w;
+  player.h = h;
+
+  playerWVal.textContent = String(Math.round(w));
+  playerHVal.textContent = String(Math.round(h));
+
+  keepPlayerInside();
+}
+
+playerWInput.addEventListener('input', applyPlayerSize);
+playerHInput.addEventListener('input', applyPlayerSize);
+
+cameraBtn.addEventListener('click',openCamera);
+
+zoneBtn.addEventListener('click',()=>{
+  zoneEdit=!zoneEdit;
+  zoneBtn.textContent=zoneEdit?'Khóa vùng':'Chỉnh vùng';
+  msg.textContent=zoneEdit
+    ?''
+    :'Vùng đã khóa. Di chuyển nhân vật để né xe.';
+});
+
+resetZoneBtn.addEventListener('click',()=>{
+  resetZone();
+  tracks.clear();
+  detections = [];
+  zoneEdit=true;
+  zoneBtn.textContent='Khóa vùng';
+});
+
+restartBtn.addEventListener('click',restartGame);
+gameoverRestart.addEventListener('click',restartGame);
+
+// ==================== LOOP ====================
+
+function resize(){
+  const r=canvas.getBoundingClientRect();
+  const oldW=W||r.width;
+  const oldH=H||r.height;
+
+  W=r.width;
+  H=r.height;
+
+  canvas.width=Math.round(W*DPR);
+  canvas.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+
+  if(zone.length!==4){
+    resetZone();
+  }else{
+    const sx=W/oldW;
+    const sy=H/oldH;
+    zone.forEach(p=>{p.x*=sx;p.y*=sy});
+    player.x*=sx;player.y*=sy;
+    keepPlayerInside();
+  }
+}
+addEventListener('resize',resize);
+
+let lastFrame=performance.now();
+
+function loop(now){
+  const dt=Math.min((now-lastFrame)/1000,.05);
+  lastFrame=now;
+
+  if(running){
+    let dx=(keys.right?1:0)-(keys.left?1:0);
+    let dy=(keys.down?1:0)-(keys.up?1:0);
+
+    if(dx||dy){
+      const len=Math.hypot(dx,dy)||1;
+      tryMove(
+        dx/len*player.speed*dt,
+        dy/len*player.speed*dt
+      );
+    }
+  }
+
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+
+// ==================== START ====================
+
+playerWInput.value = String(player.w);
+playerHInput.value = String(player.h);
+playerWVal.textContent = String(player.w);
+playerHVal.textContent = String(player.h);
+
+resize();
+requestAnimationFrame(loop);
+
+// tải đồng thời camera + AI
+openCamera();
+loadAI();
+
+})();
+</script>
+</body>
+</html>

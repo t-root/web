@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Tính tổng theo Host</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      color: #111;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: min(680px, 100%);
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 18px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      text-align: center;
+    }
+
+    /* ===== Host management ===== */
+    .host-box {
+      border: 1px solid #ccc;
+      background: #fafafa;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .host-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .host-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .host-row select,
+    .host-row input {
+      flex: 1;
+      min-width: 140px;
+      padding: 10px;
+      font-size: 15px;
+      border: 1px solid #bbb;
+      outline: none;
+    }
+
+    .host-row select:focus,
+    .host-row input:focus {
+      border-color: #111;
+    }
+
+    .btn {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 1px solid #111;
+      background: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    .btn:active {
+      background: #111;
+      color: #fff;
+    }
+
+    .btn-danger {
+      border-color: #c62828;
+      color: #c62828;
+    }
+
+    .btn-danger:active {
+      background: #c62828;
+      color: #fff;
+    }
+
+    .btn-primary {
+      background: #111;
+      color: #fff;
+    }
+
+    .btn-primary:active {
+      background: #333;
+    }
+
+    .icon-btn {
+      margin: 0;
+      padding: 0;
+      width: 42px;
+      min-height: 42px;
+      font-size: 18px;
+      line-height: 1;
+      border: 1px solid #111;
+      background: #fff;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    .icon-btn:active {
+      background: #111;
+      color: #fff;
+    }
+
+    .icon-btn.danger {
+      border-color: #c62828;
+      color: #c62828;
+    }
+
+    .icon-btn.danger:active {
+      background: #c62828;
+      color: #fff;
+    }
+
+    .host-select-wrap {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      min-width: 180px;
+      align-items: center;
+    }
+
+    .host-select-wrap select {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ===== Worker list ===== */
+    #workerList {
+      margin-bottom: 12px;
+    }
+
+    .worker-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: start;
+      margin-bottom: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+    }
+
+    .worker-main {
+      display: grid;
+      gap: 8px;
+    }
+
+    .worker-top {
+      display: grid;
+      grid-template-columns: 1fr 72px;
+      gap: 8px;
+    }
+
+    .name {
+      width: 100%;
+      padding: 11px;
+      font-size: 15px;
+      font-weight: 600;
+      border: 1px solid #bbb;
+      outline: none;
+    }
+
+    .name:focus {
+      border-color: #111;
+    }
+
+    .step-input {
+      width: 100%;
+      padding: 11px 4px;
+      font-size: 14px;
+      border: 1px solid #bbb;
+      outline: none;
+      text-align: center;
+    }
+
+    .step-input:focus {
+      border-color: #111;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 48px 1fr 48px;
+      gap: 6px;
+    }
+
+    .value {
+      width: 100%;
+      min-width: 0;
+      padding: 11px;
+      font-size: 17px;
+      border: 1px solid #bbb;
+      outline: none;
+      text-align: center;
+    }
+
+    .value:focus {
+      border-color: #111;
+    }
+
+    .step-btn {
+      margin: 0;
+      padding: 0;
+      min-height: 44px;
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1;
+      border: 1px solid #111;
+      background: #fff;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    .step-btn:active {
+      background: #111;
+      color: #fff;
+    }
+
+    .remove-btn {
+      margin: 0;
+      padding: 0 10px;
+      min-height: 44px;
+      font-size: 18px;
+      border: 1px solid #c62828;
+      background: #fff;
+      color: #c62828;
+      cursor: pointer;
+      align-self: stretch;
+    }
+
+    .remove-btn:active {
+      background: #c62828;
+      color: #fff;
+    }
+
+    /* ===== Total & actions ===== */
+    .total {
+      margin-top: 8px;
+      padding-top: 14px;
+      border-top: 2px solid #111;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .positive { color: #11823b; }
+    .negative { color: #c62828; }
+    .zero { color: #111; }
+
+    .empty-msg {
+      text-align: center;
+      color: #888;
+      padding: 20px 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 520px) {
+      .app { padding: 14px; }
+
+      .worker-top {
+        grid-template-columns: 1fr 64px;
+      }
+
+      .host-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .host-row input,
+      .host-row .btn {
+        width: 100%;
+      }
+
+      .host-select-wrap {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <h1>TÍNH TỔNG THEO HOST</h1>
+
+    <!-- Quản lý Host -->
+    <div class="host-box">
+      <div class="host-title">Chủ Host</div>
+
+      <div class="host-row">
+        <div class="host-select-wrap">
+          <select id="hostSelect">
+            <option value="">-- Chọn host --</option>
+          </select>
+          <button class="icon-btn" id="btnRenameHost" type="button" title="Đổi tên host đang chọn">✎</button>
+          <button class="icon-btn danger" id="btnDeleteHost" type="button" title="Xóa host đang chọn">×</button>
+        </div>
+        <button class="btn btn-primary" id="btnCreateHost" type="button">+ Tạo host mới</button>
+      </div>
+    </div>
+
+    <!-- Danh sách người -->
+    <div id="workerList"></div>
+
+    <button class="btn" id="btnAddWorker" type="button" style="width:100%;margin-bottom:8px;">
+      + Thêm người
+    </button>
+
+    <div class="total">
+      <span>Tổng</span>
+      <span id="total" class="zero">0</span>
+    </div>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'workerHostCalculator_v4';
+
+    // {
+    //   hosts: { "Tên Host": [ { name, value, step }, ... ] },
+    //   currentHost: "Tên Host" | null
+    // }
+
+    let state = {
+      hosts: {},
+      currentHost: null
+    };
+
+    const hostSelect = document.getElementById('hostSelect');
+    const workerListEl = document.getElementById('workerList');
+    const totalEl = document.getElementById('total');
+
+    function getNumber(val) {
+      const n = parseFloat(val);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat('vi-VN', {
+        maximumFractionDigits: 10
+      }).format(value);
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Không lưu được localStorage:', e);
+      }
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        if (data && typeof data === 'object' && data.hosts) {
+          state = data;
+          // Đảm bảo mỗi worker có step
+          Object.keys(state.hosts).forEach(hostName => {
+            state.hosts[hostName] = (state.hosts[hostName] || []).map(w => ({
+              name: w.name || '',
+              value: getNumber(w.value),
+              step: getNumber(w.step) || 1
+            }));
+          });
+        }
+      } catch (e) {
+        console.warn('Không đọc được localStorage:', e);
+      }
+    }
+
+    function refreshHostSelect() {
+      const names = Object.keys(state.hosts).sort((a, b) => a.localeCompare(b, 'vi'));
+      const current = state.currentHost;
+
+      hostSelect.innerHTML = '<option value="">-- Chọn host --</option>';
+      names.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === current) opt.selected = true;
+        hostSelect.appendChild(opt);
+      });
+    }
+
+    function getCurrentWorkers() {
+      if (!state.currentHost || !state.hosts[state.currentHost]) return [];
+      return state.hosts[state.currentHost];
+    }
+
+    function setCurrentWorkers(workers) {
+      if (!state.currentHost) return;
+      state.hosts[state.currentHost] = workers;
+    }
+
+    function escapeAttr(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function renderWorkers() {
+      const workers = getCurrentWorkers();
+      workerListEl.innerHTML = '';
+
+      if (!state.currentHost) {
+        workerListEl.innerHTML = '<div class="empty-msg">Chọn hoặc tạo một Host để bắt đầu</div>';
+        calculate();
+        return;
+      }
+
+      if (workers.length === 0) {
+        workerListEl.innerHTML = '<div class="empty-msg">Chưa có người nào. Bấm “+ Thêm người”</div>';
+        calculate();
+        return;
+      }
+
+      // Màu nền khác nhau cho từng người (xoay vòng)
+      const rowColors = [
+        '#e3f2fd', // xanh dương nhạt
+        '#e8f5e9', // xanh lá nhạt
+        '#fff3e0', // cam nhạt
+        '#f3e5f5', // tím nhạt
+        '#e0f7fa', // cyan nhạt
+        '#fce4ec', // hồng nhạt
+        '#fff8e1', // vàng nhạt
+        '#efebe9'  // nâu nhạt
+      ];
+
+      workers.forEach((worker, index) => {
+        const row = document.createElement('div');
+        row.className = 'worker-row';
+        row.dataset.index = index;
+        row.style.background = rowColors[index % rowColors.length];
+        row.style.borderColor = rowColors[index % rowColors.length];
+
+        const stepVal = getNumber(worker.step) || 1;
+
+        row.innerHTML = `
+          <div class="worker-main">
+            <div class="worker-top">
+              <input class="name" type="text" placeholder="Tên người" value="${escapeAttr(worker.name || '')}" data-field="name">
+              <input class="step-input" type="number" step="any" value="${stepVal}" data-field="step" title="Số tăng/giảm mỗi lần bấm +/−">
+            </div>
+            <div class="controls">
+              <button class="step-btn" type="button" data-action="dec">−</button>
+              <input class="value" type="number" step="any" value="${worker.value ?? 0}" data-field="value">
+              <button class="step-btn" type="button" data-action="inc">+</button>
+            </div>
+          </div>
+          <button class="remove-btn" type="button" data-action="remove" title="Xóa người">×</button>
+        `;
+
+        workerListEl.appendChild(row);
+      });
+
+      workerListEl.querySelectorAll('.worker-row').forEach(row => {
+        const index = Number(row.dataset.index);
+
+        row.querySelectorAll('input').forEach(input => {
+          input.addEventListener('input', () => {
+            updateWorkerFromUI(index, row);
+            calculate();
+            saveState();
+          });
+        });
+
+        row.querySelector('[data-action="dec"]').addEventListener('click', () => {
+          changeValue(index, -1);
+        });
+
+        row.querySelector('[data-action="inc"]').addEventListener('click', () => {
+          changeValue(index, 1);
+        });
+
+        row.querySelector('[data-action="remove"]').addEventListener('click', () => {
+          removeWorker(index);
+        });
+      });
+
+      calculate();
+    }
+
+    function updateWorkerFromUI(index, row) {
+      const workers = getCurrentWorkers();
+      if (!workers[index]) return;
+
+      const nameInput = row.querySelector('[data-field="name"]');
+      const stepInput = row.querySelector('[data-field="step"]');
+      const valueInput = row.querySelector('[data-field="value"]');
+
+      workers[index].name = nameInput.value;
+      let step = getNumber(stepInput.value);
+      if (step <= 0) step = 1;
+      workers[index].step = step;
+      workers[index].value = getNumber(valueInput.value);
+    }
+
+    function changeValue(index, direction) {
+      const workers = getCurrentWorkers();
+      if (!workers[index]) return;
+
+      const step = getNumber(workers[index].step) || 1;
+      workers[index].value = getNumber(workers[index].value) + (direction * step);
+
+      const row = workerListEl.querySelector(`.worker-row[data-index="${index}"]`);
+      if (row) {
+        row.querySelector('[data-field="value"]').value = workers[index].value;
+      }
+
+      calculate();
+      saveState();
+    }
+
+    function removeWorker(index) {
+      const workers = getCurrentWorkers();
+      const name = workers[index]?.name || 'người này';
+      if (!confirm(`Xóa "${name}"?`)) return;
+
+      workers.splice(index, 1);
+      setCurrentWorkers(workers);
+      renderWorkers();
+      saveState();
+    }
+
+    function addWorker() {
+      if (!state.currentHost) {
+        alert('Hãy chọn hoặc tạo Host trước!');
+        return;
+      }
+
+      const workers = getCurrentWorkers();
+      workers.push({
+        name: `Người ${workers.length + 1}`,
+        value: 0,
+        step: 1
+      });
+      setCurrentWorkers(workers);
+      renderWorkers();
+      saveState();
+    }
+
+    function calculate() {
+      const workers = getCurrentWorkers();
+      // Tổng thực = sum, hiển thị luôn nghịch đảo (chỉ đảo phần tổng)
+      const sum = workers.reduce((s, w) => s + getNumber(w.value), 0);
+      const total = -sum;
+
+      totalEl.textContent = formatNumber(total);
+      totalEl.className =
+        total > 0 ? 'positive' :
+        total < 0 ? 'negative' :
+        'zero';
+    }
+
+    // ---------- Host actions ----------
+    function loadSelectedHost() {
+      const name = hostSelect.value;
+      if (!name) {
+        state.currentHost = null;
+        renderWorkers();
+        saveState();
+        return;
+      }
+
+      if (!state.hosts[name]) {
+        alert('Host không tồn tại!');
+        return;
+      }
+
+      state.currentHost = name;
+      renderWorkers();
+      saveState();
+    }
+
+    // Tạo host mới — copy người hiện có, đặt số về 0 (không xóa danh sách người)
+    function createNewHost() {
+      const name = prompt('Nhập tên host mới:');
+      if (name === null) return; // bấm Cancel
+
+      const trimmed = name.trim();
+      if (!trimmed) {
+        alert('Tên không được để trống!');
+        return;
+      }
+
+      if (state.hosts[trimmed]) {
+        alert(`Host "${trimmed}" đã tồn tại. Hãy chọn tên khác hoặc chọn host đó ở danh sách trên.`);
+        return;
+      }
+
+      // Copy người từ host hiện tại, đặt value = 0 (giữ tên + step)
+      const current = getCurrentWorkers();
+      const copied = current.map(w => ({
+        name: w.name || '',
+        value: 0,
+        step: getNumber(w.step) || 1
+      }));
+
+      state.hosts[trimmed] = copied;
+      state.currentHost = trimmed;
+      refreshHostSelect();
+      renderWorkers();
+      saveState();
+    }
+
+    // Đổi tên host đang chọn (icon ✎)
+    function renameCurrentHost() {
+      const oldName = hostSelect.value || state.currentHost;
+      if (!oldName) {
+        alert('Chưa chọn host nào!');
+        return;
+      }
+
+      const newName = prompt(`Đổi tên host "${oldName}" thành:`, oldName);
+      if (newName === null) return; // bấm Cancel
+
+      const trimmed = newName.trim();
+      if (!trimmed) {
+        alert('Tên không được để trống!');
+        return;
+      }
+
+      if (trimmed === oldName) return;
+
+      if (state.hosts[trimmed]) {
+        alert(`Host "${trimmed}" đã tồn tại. Không thể đổi tên.`);
+        return;
+      }
+
+      const workers = state.hosts[oldName] || [];
+      delete state.hosts[oldName];
+      state.hosts[trimmed] = workers;
+
+      if (state.currentHost === oldName) {
+        state.currentHost = trimmed;
+      }
+
+      refreshHostSelect();
+      renderWorkers();
+      saveState();
+    }
+
+    function deleteCurrentHost() {
+      const name = hostSelect.value || state.currentHost;
+      if (!name) {
+        alert('Chưa chọn host nào!');
+        return;
+      }
+
+      if (!confirm(`Xóa host "${name}" và toàn bộ người của host này?`)) return;
+
+      delete state.hosts[name];
+      if (state.currentHost === name) {
+        state.currentHost = null;
+      }
+
+      refreshHostSelect();
+      renderWorkers();
+      saveState();
+    }
+
+    // ---------- Events ----------
+    document.getElementById('btnCreateHost').addEventListener('click', createNewHost);
+    document.getElementById('btnRenameHost').addEventListener('click', renameCurrentHost);
+    document.getElementById('btnDeleteHost').addEventListener('click', deleteCurrentHost);
+    document.getElementById('btnAddWorker').addEventListener('click', addWorker);
+
+    // Chọn host → tự load
+    hostSelect.addEventListener('change', loadSelectedHost);
+
+    // ---------- Init ----------
+    loadState();
+    refreshHostSelect();
+    renderWorkers();
+  </script>
+</body>
+</html>

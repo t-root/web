@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karaoke Studio Fix Vang</title>
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            color-scheme: dark;
+            --bg: #0b0d10;
+            --surface: #11151a;
+            --surface-2: #171c22;
+            --border: #2b3138;
+            --text: #f2f4f7;
+            --muted: #9aa4af;
+        }
+        body {
+            margin: 0;
+            padding: 12px;
+            background: var(--bg);
+            color: var(--text);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .container {
+            width: 100%;
+            max-width: 760px;
+            margin: 0 auto;
+        }
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        input[type="text"], button {
+            min-height: 42px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font: inherit;
+        }
+        input[type="text"] {
+            flex: 1;
+            min-width: 0;
+            padding: 0 12px;
+            background: var(--surface);
+            color: var(--text);
+            outline: none;
+        }
+        input[type="text"]:focus {
+            border-color: #59636f;
+        }
+        button {
+            padding: 0 14px;
+            background: #f2f4f7;
+            color: #0b0d10;
+            cursor: pointer;
+            font-weight: 650;
+        }
+        button:active { transform: translateY(1px); }
+        .secondary-btn {
+            background: transparent;
+            color: var(--text);
+        }
+        .video-container {
+            position: relative;
+            height: 0;
+            padding-bottom: 56.25%;
+            overflow: hidden;
+            margin-bottom: 10px;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .video-container iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .panel {
+            margin-top: 10px;
+            padding: 10px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+        .section-head {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .section-title {
+            flex: 1;
+            color: #d7dde4;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .toggle-btn {
+            min-height: 34px;
+            padding: 0 10px;
+            background: transparent;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .panel-body { margin-top: 12px; }
+        .row-item {
+            display: grid;
+            grid-template-columns: 92px minmax(0, 1fr) 72px;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .row-item:last-child { margin-bottom: 0; }
+        .label-text {
+            color: #d7dde4;
+            font-size: 14px;
+        }
+        .slider {
+            width: 100%;
+            margin: 0;
+            accent-color: #f2f4f7;
+            cursor: pointer;
+        }
+        .val-box {
+            width: 72px;
+            padding: 6px 7px;
+            text-align: right;
+            color: var(--muted);
+            background: var(--surface-2);
+            border-radius: 4px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .mic-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .mic-row button { flex: 1; }
+        #micStatus {
+            min-width: 64px;
+            text-align: right;
+            color: var(--muted) !important;
+            font-size: 13px;
+            font-weight: 500 !important;
+        }
+        .song-list {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+        .song-empty {
+            padding: 8px 2px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+        .song-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+        }
+        .song-link {
+            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #d7dde4;
+            font-size: 14px;
+        }
+        .song-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .song-actions button, .small-btn {
+            min-height: 34px;
+            padding: 0 10px;
+            font-size: 13px;
+        }
+        @media (max-width: 560px) {
+            body { padding: 8px; }
+            .search-box { gap: 6px; }
+            .search-box button { padding: 0 12px; }
+            .panel { padding: 8px; }
+            .row-item {
+                grid-template-columns: 82px minmax(0, 1fr) 66px;
+                gap: 7px;
+            }
+            .label-text { font-size: 13px; }
+            .val-box { width: 66px; font-size: 12px; }
+            .song-item { align-items: stretch; }
+            .song-link {
+                white-space: normal;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="search-box">
+        <input type="text" id="videoUrl" placeholder="Link YouTube">
+        <button type="button" onclick="loadVideo()">Mở</button>
+    </div>
+
+    <div class="panel">
+        <div class="section-head">
+            <span class="section-title">Danh sách</span>
+            <button id="songsToggleBtn" class="toggle-btn" type="button" onclick="togglePanel('songs')">Ẩn</button>
+            <button class="small-btn secondary-btn" type="button" onclick="clearSavedSongs()">Xóa hết</button>
+        </div>
+        <div id="songsPanelBody" class="panel-body">
+            <div id="savedSongsList" class="song-list"></div>
+        </div>
+    </div>
+
+    <div class="video-container">
+        <div id="player"></div>
+    </div>
+
+    <div class="panel">
+        <div class="section-head">
+            <span class="section-title">Nhạc</span>
+            <button id="musicToggleBtn" class="toggle-btn" type="button" onclick="togglePanel('music')">Ẩn</button>
+        </div>
+        <div id="musicPanelBody" class="panel-body">
+            <div class="row-item">
+                <span class="label-text">Nhạc</span>
+                <input type="range" class="slider" id="musicVolume" min="0" max="100" step="1" value="80" oninput="changeMusicVolume(this.value)">
+                <span class="val-box" id="val-music">80%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="section-head">
+            <span class="section-title">Mic & Echo</span>
+            <button id="voiceToggleBtn" class="toggle-btn" type="button" onclick="togglePanel('voice')">Ẩn</button>
+        </div>
+        <div id="voicePanelBody" class="panel-body">
+            <div class="mic-row">
+                <button id="micBtn" type="button" onclick="toggleMic()">Bật mic</button>
+                <span id="micStatus">Tắt</span>
+            </div>
+            <div class="row-item">
+                <span class="label-text">Mic</span>
+                <input type="range" class="slider" id="micVolume" min="0" max="2" step="0.1" value="1.0" oninput="changeMicVolume(this.value)">
+                <span class="val-box" id="val-vol">100%</span>
+            </div>
+            <div class="row-item">
+                <span class="label-text">Echo</span>
+                <input type="range" class="slider" id="echoVol" min="0" max="1" step="0.05" value="0.20" oninput="updateEcho()">
+                <span class="val-box" id="val-echo">20%</span>
+            </div>
+            <div class="row-item">
+                <span class="label-text">Delay</span>
+                <input type="range" class="slider" id="echoDelay" min="0.1" max="0.5" step="0.01" value="0.18" oninput="updateEcho()">
+                <span class="val-box" id="val-delay">0.18s</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="section-head">
+            <span class="section-title">EQ</span>
+            <button id="eqToggleBtn" class="toggle-btn" type="button" onclick="togglePanel('eq')">Ẩn</button>
+        </div>
+        <div id="eqPanelBody" class="panel-body">
+            
+            <div class="row-item"><span class="label-text">80 Hz</span><input type="range" class="slider" id="eq-80" min="-12" max="12" step="0.1" value="-4" oninput="updateEQ(80, this.value)"><span class="val-box" id="val-80">-4.0 dB</span></div>
+            <div class="row-item"><span class="label-text">160 Hz</span><input type="range" class="slider" id="eq-160" min="-12" max="12" step="0.1" value="-2" oninput="updateEQ(160, this.value)"><span class="val-box" id="val-160">-2.0 dB</span></div>
+            <div class="row-item"><span class="label-text">315 Hz</span><input type="range" class="slider" id="eq-315" min="-12" max="12" step="0.1" value="-1" oninput="updateEQ(315, this.value)"><span class="val-box" id="val-315">-1.0 dB</span></div>
+            <div class="row-item"><span class="label-text">630 Hz</span><input type="range" class="slider" id="eq-630" min="-12" max="12" step="0.1" value="0" oninput="updateEQ(630, this.value)"><span class="val-box" id="val-630">0.0 dB</span></div>
+            <div class="row-item"><span class="label-text">1.25k Hz</span><input type="range" class="slider" id="eq-1250" min="-12" max="12" step="0.1" value="1.5" oninput="updateEQ(1250, this.value)"><span class="val-box" id="val-1250">1.5 dB</span></div>
+            <div class="row-item"><span class="label-text">2.5k Hz</span><input type="range" class="slider" id="eq-2500" min="-12" max="12" step="0.1" value="2.5" oninput="updateEQ(2500, this.value)"><span class="val-box" id="val-2500">2.5 dB</span></div>
+            <div class="row-item"><span class="label-text">5k Hz</span><input type="range" class="slider" id="eq-5000" min="-12" max="12" step="0.1" value="1.5" oninput="updateEQ(5000, this.value)"><span class="val-box" id="val-5000">1.5 dB</span></div>
+        </div>
+    </div>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+    let audioContext;
+    let micStream = null;
+    let microphone;
+    let mainGainNode;
+    let isMicOn = false;
+    let player = null;
+    let playerReady = false;
+    let pendingVideoId = null;
+    
+    let filters = {}; 
+    let delayNode, feedbackGain, echoGainNode;
+    let rawMicKeeperAudio = null;
+    let routeRestartTimer = null;
+    let routeRestarting = false;
+    let preferredPhoneMicDeviceId = '';
+    // Preset vocal karaoke 7-band: cắt ù/trầm, giữ mid sạch, tăng độ rõ giọng.
+    // Người dùng vẫn có thể chỉnh từng band; các thay đổi tiếp tục được lưu LocalStorage.
+    const frequencies = [80, 160, 315, 630, 1250, 2500, 5000];
+
+    const SETTINGS_KEY = 'karaokeSettingsKaraokePresetV2';
+    const SONGS_KEY = 'karaokeSavedSongsV1';
+
+    const SONG_LIST_VISIBILITY_KEY = 'karaokeSongListVisibilityV1';
+    const PANEL_VISIBILITY_KEY = 'karaokePanelVisibilityV1';
+    const PANEL_MAP = {
+        songs: { buttonId: 'songsToggleBtn', bodyId: 'songsPanelBody' },
+        music: { buttonId: 'musicToggleBtn', bodyId: 'musicPanelBody' },
+        voice: { buttonId: 'voiceToggleBtn', bodyId: 'voicePanelBody' },
+        eq: { buttonId: 'eqToggleBtn', bodyId: 'eqPanelBody' }
+    };
+
+    function setPanelVisibility(name, value, save = true) {
+        const config = PANEL_MAP[name];
+        if (!config) return;
+
+        const mode = value === 'hide' ? 'hide' : 'show';
+        const button = document.getElementById(config.buttonId);
+        const body = document.getElementById(config.bodyId);
+
+        if (body) body.style.display = mode === 'hide' ? 'none' : '';
+        if (button) button.textContent = mode === 'hide' ? 'Hiện' : 'Ẩn';
+
+        if (save) {
+            const saved = readJSON(PANEL_VISIBILITY_KEY, {});
+            saved[name] = mode;
+            writeJSON(PANEL_VISIBILITY_KEY, saved);
+        }
+    }
+
+    function togglePanel(name) {
+        const config = PANEL_MAP[name];
+        if (!config) return;
+        const body = document.getElementById(config.bodyId);
+        if (!body) return;
+
+        const isHidden = body.style.display === 'none';
+        setPanelVisibility(name, isHidden ? 'show' : 'hide');
+    }
+
+    function restorePanelVisibility() {
+        const saved = readJSON(PANEL_VISIBILITY_KEY, {});
+
+        // Giữ tương thích trạng thái danh sách của bản trước.
+        if (!saved.songs) {
+            try {
+                saved.songs = localStorage.getItem(SONG_LIST_VISIBILITY_KEY) || 'show';
+            } catch (_) {
+                saved.songs = 'show';
+            }
+        }
+
+        Object.keys(PANEL_MAP).forEach(name => {
+            setPanelVisibility(name, saved[name] || 'show', false);
+        });
+    }
+
+    function readJSON(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : fallback;
+        } catch (err) {
+            console.warn('Không đọc được LocalStorage:', key, err);
+            return fallback;
+        }
+    }
+
+    function writeJSON(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (err) {
+            console.warn('Không ghi được LocalStorage:', key, err);
+        }
+    }
+
+    function getCurrentSettings() {
+        const eq = {};
+        frequencies.forEach(freq => {
+            eq[freq] = parseFloat(document.getElementById(`eq-${freq}`).value);
+        });
+
+        return {
+            musicVolume: parseInt(document.getElementById('musicVolume').value, 10),
+            micVolume: parseFloat(document.getElementById('micVolume').value),
+            echoVol: parseFloat(document.getElementById('echoVol').value),
+            echoDelay: parseFloat(document.getElementById('echoDelay').value),
+            eq
+        };
+    }
+
+    function saveSettings() {
+        writeJSON(SETTINGS_KEY, getCurrentSettings());
+    }
+
+    function restoreSettings() {
+        const saved = readJSON(SETTINGS_KEY, null);
+        if (!saved) return;
+
+        if (Number.isFinite(saved.musicVolume)) {
+            const el = document.getElementById('musicVolume');
+            el.value = Math.max(0, Math.min(100, saved.musicVolume));
+            document.getElementById('val-music').innerText = `${el.value}%`;
+        }
+
+        if (Number.isFinite(saved.micVolume)) {
+            const el = document.getElementById('micVolume');
+            el.value = Math.max(0, Math.min(2, saved.micVolume));
+            document.getElementById('val-vol').innerText = `${Math.round(parseFloat(el.value) * 100)}%`;
+        }
+
+        if (Number.isFinite(saved.echoVol)) {
+            const el = document.getElementById('echoVol');
+            el.value = Math.max(0, Math.min(1, saved.echoVol));
+            document.getElementById('val-echo').innerText = `${Math.round(parseFloat(el.value) * 100)}%`;
+        }
+
+        if (Number.isFinite(saved.echoDelay)) {
+            const el = document.getElementById('echoDelay');
+            el.value = Math.max(0.1, Math.min(0.5, saved.echoDelay));
+            document.getElementById('val-delay').innerText = `${parseFloat(el.value).toFixed(2)}s`;
+        }
+
+        if (saved.eq && typeof saved.eq === 'object') {
+            frequencies.forEach(freq => {
+                const value = parseFloat(saved.eq[freq]);
+                if (!Number.isFinite(value)) return;
+                const el = document.getElementById(`eq-${freq}`);
+                const clamped = Math.max(-12, Math.min(12, value));
+                el.value = clamped;
+                document.getElementById(`val-${freq}`).innerText = `${clamped.toFixed(1)} dB`;
+            });
+        }
+    }
+
+    function isProbablyBluetoothMic(label) {
+        const text = String(label || '').toLowerCase();
+        return /(bluetooth|headset|hands[- ]?free|airpods|buds|tws|tai nghe|rảnh tay|ranh tay)/i.test(text);
+    }
+
+    function isProbablyPhoneMic(label) {
+        const text = String(label || '').toLowerCase();
+        if (!text || isProbablyBluetoothMic(text)) return false;
+
+        // Chỉ khóa deviceId khi Chrome thật sự expose một mic tích hợp rõ ràng.
+        // Không khóa "Speakerphone" / "Headset earpiece" vì trên Android đây có thể
+        // là audio route ghép cả input + output, làm âm thanh không còn đi Bluetooth.
+        return /(built[- ]?in|internal|phone mic|microphone.*phone|mic.*phone|điện thoại|dien thoai)/i.test(text)
+            && !/(speakerphone|earpiece)/i.test(text);
+    }
+
+    async function refreshPhoneMicDevice() {
+        preferredPhoneMicDeviceId = '';
+
+        if (!navigator.mediaDevices?.enumerateDevices) return '';
+
+        let devices = [];
+        try {
+            devices = (await navigator.mediaDevices.enumerateDevices())
+                .filter(d => d.kind === 'audioinput');
+        } catch (err) {
+            console.warn('Không liệt kê được mic:', err);
+            return '';
+        }
+
+        // Ưu tiên mic tích hợp nếu Android/Chrome công khai riêng device đó.
+        const builtIn = devices.find(d =>
+            d.deviceId &&
+            d.deviceId !== 'default' &&
+            d.deviceId !== 'communications' &&
+            isProbablyPhoneMic(d.label)
+        );
+
+        if (builtIn) {
+            preferredPhoneMicDeviceId = builtIn.deviceId;
+            console.log('Ưu tiên mic điện thoại:', builtIn.label);
+            return preferredPhoneMicDeviceId;
+        }
+
+        // Nếu Android chỉ expose các route như Default / Speakerphone /
+        // Headset earpiece thì KHÔNG ép một route cụ thể. Để hệ điều hành
+        // tự quản lý output Bluetooth thay vì vô tình khóa về loa điện thoại.
+        console.log('Không có deviceId mic điện thoại riêng; dùng input mặc định của Android.');
+        return '';
+    }
+
+    async function getPreferredMicStream() {
+        // Karaoke/local-monitoring: xin mic theo chế độ ít xử lý nhất có thể.
+        const base = {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: { ideal: 1 },
+            latency: { ideal: 0 }
+        };
+
+        if (preferredPhoneMicDeviceId) {
+            try {
+                return await navigator.mediaDevices.getUserMedia({
+                    audio: { ...base, deviceId: { exact: preferredPhoneMicDeviceId } }
+                });
+            } catch (err) {
+                console.warn('Mic điện thoại riêng không mở được, chuyển sang input mặc định:', err);
+                preferredPhoneMicDeviceId = '';
+            }
+        }
+
+        return navigator.mediaDevices.getUserMedia({ audio: base });
+    }
+
+    function ensureHiddenAudioElements() {
+        if (!rawMicKeeperAudio) {
+            rawMicKeeperAudio = document.createElement('audio');
+            rawMicKeeperAudio.autoplay = true;
+            rawMicKeeperAudio.muted = true;
+            rawMicKeeperAudio.playsInline = true;
+            rawMicKeeperAudio.setAttribute('playsinline', '');
+            rawMicKeeperAudio.style.display = 'none';
+            document.body.appendChild(rawMicKeeperAudio);
+        }
+    }
+
+    async function playAudioElement(el, label) {
+        if (!el) return;
+        try {
+            const promise = el.play();
+            if (promise && typeof promise.then === 'function') await promise;
+        } catch (err) {
+            console.warn(label + ' chưa play được:', err);
+        }
+    }
+
+    async function stopMicGraph({ keepAudioElements = true } = {}) {
+        try { if (microphone) microphone.disconnect(); } catch (_) {}
+        Object.values(filters).forEach(f => { try { f.disconnect(); } catch (_) {} });
+        filters = {};
+        try { if (delayNode) delayNode.disconnect(); } catch (_) {}
+        try { if (feedbackGain) feedbackGain.disconnect(); } catch (_) {}
+        try { if (echoGainNode) echoGainNode.disconnect(); } catch (_) {}
+        try { if (mainGainNode) mainGainNode.disconnect(); } catch (_) {}
+
+        if (rawMicKeeperAudio) {
+            try { rawMicKeeperAudio.pause(); } catch (_) {}
+            rawMicKeeperAudio.srcObject = null;
+        }
+
+        if (micStream) {
+            micStream.getTracks().forEach(track => track.stop());
+            micStream = null;
+        }
+
+        microphone = null;
+        delayNode = null;
+        feedbackGain = null;
+        echoGainNode = null;
+        mainGainNode = null;
+        isMicOn = false;
+
+        if (!keepAudioElements) {
+            try { rawMicKeeperAudio?.remove(); } catch (_) {}
+            rawMicKeeperAudio = null;
+        }
+    }
+
+    async function startMicGraph() {
+        const micBtn = document.getElementById('micBtn');
+        const micStatus = document.getElementById('micStatus');
+
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('Trình duyệt không hỗ trợ microphone');
+
+        ensureHiddenAudioElements();
+
+        // Xin quyền trước để Chrome hiện đầy đủ label/deviceId.
+        // Sau đó chỉ tự chọn mic điện thoại khi có một audioinput riêng rõ ràng.
+        if (!preferredPhoneMicDeviceId) {
+            const permissionStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            permissionStream.getTracks().forEach(track => track.stop());
+            await refreshPhoneMicDevice();
+        }
+
+        micStream = await getPreferredMicStream();
+
+        // Workaround cho Chrome/Android: giữ stream mic gắn với một audio element
+        // (muted) để stream không bị rơi khỏi media playback path khi đổi Bluetooth.
+        rawMicKeeperAudio.srcObject = micStream;
+        await playAudioElement(rawMicKeeperAudio, 'Mic keeper');
+
+        if (!audioContext || audioContext.state === 'closed') {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+        }
+        if (audioContext.state === 'suspended') {
+            try { await audioContext.resume(); } catch (_) {}
+        }
+
+        microphone = audioContext.createMediaStreamSource(micStream);
+        mainGainNode = audioContext.createGain();
+        mainGainNode.gain.value = document.getElementById('micVolume').value * 0.5;
+
+        let lastNode = microphone;
+        frequencies.forEach(freq => {
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'peaking';
+            filter.frequency.value = freq;
+            filter.Q.value = 1.2;
+            filter.gain.value = parseFloat(document.getElementById(`eq-${freq}`).value);
+            filters[freq] = filter;
+            lastNode.connect(filter);
+            lastNode = filter;
+        });
+
+        delayNode = audioContext.createDelay();
+        feedbackGain = audioContext.createGain();
+        echoGainNode = audioContext.createGain();
+        delayNode.delayTime.value = parseFloat(document.getElementById('echoDelay').value);
+        feedbackGain.gain.value = 0.20;
+        echoGainNode.gain.value = parseFloat(document.getElementById('echoVol').value);
+
+        lastNode.connect(delayNode);
+        delayNode.connect(feedbackGain);
+        feedbackGain.connect(delayNode);
+        delayNode.connect(echoGainNode);
+        echoGainNode.connect(mainGainNode);
+        lastNode.connect(mainGainNode);
+
+        // LOW-LATENCY: phát trực tiếp WebAudio ra output hiện tại.
+        // Bỏ MediaStreamDestination + <audio> để giảm thêm một tầng buffer.
+        // Android sẽ tự route destination ra loa máy hoặc Bluetooth hiện tại.
+        mainGainNode.connect(audioContext.destination);
+
+        isMicOn = true;
+        micBtn.innerText = 'Tắt mic';
+        micStatus.innerText = 'Bật';
+
+        const track = micStream.getAudioTracks()[0];
+        if (track) {
+            console.log('Mic đang dùng:', track.label, track.getSettings?.());
+            track.addEventListener('ended', () => {
+                if (!isMicOn) return;
+                micStatus.innerText = 'Mất mic';
+            }, { once: true });
+        }
+    }
+
+    async function restartMicForAudioRoute() {
+        if (!isMicOn || routeRestarting) return;
+        routeRestarting = true;
+        const micBtn = document.getElementById('micBtn');
+        const micStatus = document.getElementById('micStatus');
+        micStatus.innerText = 'Đổi loa…';
+
+        try {
+            await stopMicGraph();
+            // Android thường phát nhiều devicechange liên tiếp khi A2DP/SCO đổi route.
+            await new Promise(resolve => setTimeout(resolve, 450));
+            await refreshPhoneMicDevice();
+            await startMicGraph();
+        } catch (err) {
+            console.error('Không khởi động lại mic sau khi đổi audio route:', err);
+            await stopMicGraph();
+            micBtn.innerText = 'Bật mic';
+            micStatus.innerText = 'Bật lại mic';
+        } finally {
+            routeRestarting = false;
+        }
+    }
+
+    function normalizeSongUrl(input) {
+        const videoId = getYouTubeId(input.trim());
+        if (!videoId || videoId.length !== 11) return null;
+        return `https://www.youtube.com/watch?v=${videoId}`;
+    }
+
+    function getSavedSongs() {
+        const rawSongs = readJSON(SONGS_KEY, []);
+        if (!Array.isArray(rawSongs)) return [];
+
+        // Tương thích cả dữ liệu cũ nếu trước đây chỉ lưu chuỗi URL.
+        return rawSongs.map(song => {
+            if (typeof song === 'string') {
+                const url = normalizeSongUrl(song);
+                return url ? { url, videoId: getYouTubeId(url), title: '', savedAt: 0 } : null;
+            }
+
+            if (!song || typeof song !== 'object') return null;
+            const url = normalizeSongUrl(song.url || song.videoId || '');
+            if (!url) return null;
+
+            return {
+                url,
+                videoId: song.videoId || getYouTubeId(url),
+                title: typeof song.title === 'string' ? song.title : '',
+                savedAt: Number.isFinite(song.savedAt) ? song.savedAt : 0
+            };
+        }).filter(Boolean);
+    }
+
+    function saveSongUrl(input) {
+        const url = normalizeSongUrl(input);
+        if (!url) return;
+
+        const videoId = getYouTubeId(url);
+        const currentSongs = getSavedSongs();
+        const oldSong = currentSongs.find(song => song.videoId === videoId);
+        const songs = currentSongs.filter(song => song.videoId !== videoId);
+
+        songs.unshift({
+            url,
+            videoId,
+            title: oldSong?.title || '',
+            savedAt: Date.now()
+        });
+
+        writeJSON(SONGS_KEY, songs);
+        renderSavedSongs();
+    }
+
+    function updateSavedSongTitle(videoId, title) {
+        const cleanTitle = String(title || '').trim();
+        if (!videoId || !cleanTitle) return;
+
+        const songs = getSavedSongs();
+        let changed = false;
+
+        songs.forEach(song => {
+            if (song.videoId === videoId && song.title !== cleanTitle) {
+                song.title = cleanTitle;
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            writeJSON(SONGS_KEY, songs);
+            renderSavedSongs();
+        }
+    }
+
+    function syncCurrentVideoTitle() {
+        if (!playerReady || !player || typeof player.getVideoData !== 'function') return;
+
+        try {
+            const data = player.getVideoData() || {};
+            const videoId = data.video_id || data.videoId || '';
+            const title = data.title || '';
+            updateSavedSongTitle(videoId, title);
+        } catch (err) {
+            console.warn('Chưa lấy được tên video:', err);
+        }
+    }
+
+    function openSavedSong(videoId, url) {
+        document.getElementById('videoUrl').value = url;
+        pendingVideoId = videoId;
+
+        if (playerReady && player) {
+            player.loadVideoById(videoId);
+            player.setVolume(parseInt(document.getElementById('musicVolume').value, 10));
+        }
+    }
+
+    function deleteSavedSong(videoId) {
+        const songs = getSavedSongs().filter(song => song.videoId !== videoId);
+        writeJSON(SONGS_KEY, songs);
+        renderSavedSongs();
+    }
+
+    function clearSavedSongs() {
+        if (!getSavedSongs().length) return;
+        if (!confirm('Xóa toàn bộ danh sách bài hát đã lưu?')) return;
+        localStorage.removeItem(SONGS_KEY);
+        renderSavedSongs();
+    }
+
+    function renderSavedSongs() {
+        const list = document.getElementById('savedSongsList');
+        const songs = getSavedSongs();
+        list.innerHTML = '';
+
+        if (!songs.length) {
+            const empty = document.createElement('div');
+            empty.className = 'song-empty';
+            empty.textContent = 'Chưa có bài hát.';
+            list.appendChild(empty);
+            return;
+        }
+
+        songs.forEach((song, index) => {
+            const item = document.createElement('div');
+            item.className = 'song-item';
+
+            const link = document.createElement('div');
+            link.className = 'song-link';
+            link.textContent = `${index + 1}. ${song.title || 'Đang lấy tên bài hát...'}`;
+
+            const actions = document.createElement('div');
+            actions.className = 'song-actions';
+
+            const openBtn = document.createElement('button');
+            openBtn.type = 'button';
+            openBtn.textContent = 'Mở';
+            openBtn.addEventListener('click', () => openSavedSong(song.videoId, song.url));
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.textContent = 'Xóa';
+            deleteBtn.addEventListener('click', () => deleteSavedSong(song.videoId));
+
+            actions.appendChild(openBtn);
+            actions.appendChild(deleteBtn);
+            item.appendChild(link);
+            item.appendChild(actions);
+            list.appendChild(item);
+        });
+    }
+
+
+    function getYouTubeId(url) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : url;
+    }
+
+    function loadVideo() {
+        const url = document.getElementById('videoUrl').value.trim();
+        if (!url) return alert('Vui lòng nhập link YouTube!');
+
+        const videoId = getYouTubeId(url);
+        if (!videoId || videoId.length !== 11) return alert('Link YouTube không hợp lệ!');
+
+        saveSongUrl(url);
+        pendingVideoId = videoId;
+
+        if (playerReady && player) {
+            player.loadVideoById(videoId);
+            player.setVolume(parseInt(document.getElementById('musicVolume').value, 10));
+        }
+    }
+
+    // YouTube IFrame API: dùng API chính thức để chỉnh âm lượng nhạc riêng.
+    window.onYouTubeIframeAPIReady = function() {
+        player = new YT.Player('player', {
+            videoId: 'dQw4w9WgXcQ',
+            playerVars: {
+                playsinline: 1,
+                modestbranding: 1,
+                rel: 0
+            },
+            events: {
+                onReady: function(event) {
+                    playerReady = true;
+                    event.target.setVolume(parseInt(document.getElementById('musicVolume').value, 10));
+
+                    if (pendingVideoId) {
+                        const videoId = pendingVideoId;
+                        pendingVideoId = null;
+                        event.target.loadVideoById(videoId);
+                    }
+                },
+                onStateChange: function() {
+                    // Khi YouTube đã nạp metadata, lấy title thật và lưu vào LocalStorage.
+                    setTimeout(syncCurrentVideoTitle, 100);
+                    setTimeout(syncCurrentVideoTitle, 600);
+                }
+            }
+        });
+    };
+
+    function changeMusicVolume(volume) {
+        const value = Math.max(0, Math.min(100, parseInt(volume, 10) || 0));
+        document.getElementById('val-music').innerText = value + '%';
+
+        if (playerReady && player && typeof player.setVolume === 'function') {
+            player.setVolume(value);
+        }
+        saveSettings();
+    }
+
+    async function forceDefaultAudioOutput() {
+        // Đầu ra mic đi thẳng qua audioContext.destination để ưu tiên độ trễ thấp.
+        // Khi Android đổi route Bluetooth, chỉ cần đảm bảo AudioContext tiếp tục chạy.
+        if (audioContext && audioContext.state === 'suspended') {
+            try { await audioContext.resume(); } catch (_) {}
+        }
+    }
+
+    async function toggleMic() {
+        const micBtn = document.getElementById('micBtn');
+        const micStatus = document.getElementById('micStatus');
+
+        if (!isMicOn) {
+            try {
+                await startMicGraph();
+            } catch (err) {
+                console.error(err);
+                await stopMicGraph();
+                micBtn.innerText = 'Bật mic';
+                micStatus.innerText = 'Lỗi';
+                alert('Không thể mở mic điện thoại. Hãy kiểm tra quyền Microphone rồi thử lại.');
+            }
+        } else {
+            await stopMicGraph();
+            micBtn.innerText = 'Bật mic';
+            micStatus.innerText = 'Tắt';
+        }
+    }
+
+    function updateEcho() {
+        const delayTime = parseFloat(document.getElementById('echoDelay').value);
+        const echoVolume = parseFloat(document.getElementById('echoVol').value);
+
+        document.getElementById('val-delay').innerText = delayTime.toFixed(2) + 's';
+        document.getElementById('val-echo').innerText = Math.round(echoVolume * 100) + '%';
+
+        if (isMicOn && echoGainNode) {
+            delayNode.delayTime.setValueAtTime(delayTime, audioContext.currentTime);
+            echoGainNode.gain.setValueAtTime(echoVolume, audioContext.currentTime);
+        }
+        saveSettings();
+    }
+
+    function updateEQ(freq, value) {
+        document.getElementById(`val-${freq}`).innerText = `${parseFloat(value).toFixed(1)} dB`;
+        if (isMicOn && filters[freq]) {
+            filters[freq].gain.setValueAtTime(parseFloat(value), audioContext.currentTime);
+        }
+        saveSettings();
+    }
+
+    function changeMicVolume(volume) {
+        document.getElementById('val-vol').innerText = Math.round(volume * 100) + '%';
+        if (mainGainNode && isMicOn) {
+            mainGainNode.gain.setValueAtTime(volume * 0.5, audioContext.currentTime);
+        }
+        saveSettings();
+    }
+
+    // Android có thể bắn nhiều devicechange khi Bluetooth đổi giữa các audio route.
+    // Đợi route ổn định rồi mở lại mic + graph một lần.
+    if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+        navigator.mediaDevices.addEventListener('devicechange', () => {
+            clearTimeout(routeRestartTimer);
+            routeRestartTimer = setTimeout(async () => {
+                if (isMicOn) {
+                    await restartMicForAudioRoute();
+                } else {
+                    await refreshPhoneMicDevice();
+                }
+            }, 900);
+        });
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && isMicOn) forceDefaultAudioOutput();
+    });
+
+    window.addEventListener('pageshow', () => {
+        if (isMicOn) forceDefaultAudioOutput();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        restoreSettings();
+        renderSavedSongs();
+        restorePanelVisibility();
+        refreshPhoneMicDevice();
+    });
+</script>
+
+</body>
+</html>
