@@ -159,7 +159,7 @@
       display: none;
       pointer-events: none;
       z-index: 5;
-      filter: drop-shadow(0 0 6px rgba(255, 204, 68, .6));
+      filter: drop-shadow(0 0 4px rgba(255, 204, 68, .45));
     }
     #dir-arrow svg { width: 100%; height: 100%; }
   </style>
@@ -171,7 +171,7 @@
       <canvas id="overlay"></canvas>
       <img id="sun-overlay" alt="" draggable="false">
       <img id="moon-overlay" alt="" draggable="false">
-      <div id="dir-arrow"><svg viewBox="0 0 100 100"><path d="M50 6 L86 56 H62 V94 H38 V56 H14 Z" fill="#ffcc44" stroke="rgba(0,0,0,.55)" stroke-width="4" stroke-linejoin="round"/></svg></div>
+      <div id="dir-arrow"><svg viewBox="0 0 100 100" fill="none" stroke-linecap="round" stroke-linejoin="round"><g stroke="rgba(0,0,0,.45)" stroke-width="7"><path d="M50 90 V14"/><path d="M30 34 L50 12 L70 34"/></g><g stroke="#ffd866" stroke-width="3.5"><path d="M50 90 V14"/><path d="M30 34 L50 12 L70 34"/></g></svg></div>
     </div>
 
     <div id="hud">
