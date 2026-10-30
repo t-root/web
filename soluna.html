@@ -149,7 +149,7 @@
       filter: brightness(1.06) contrast(0.96) saturate(0.88);
       box-shadow: 0 0 10px 2px rgba(255, 230, 180, 0.22);
     }
-    #dir-arrow {
+    .dir-arrow {
       position: absolute;
       left: 50%;
       top: 50%;
@@ -163,11 +163,16 @@
       font-weight: 700;
       line-height: 56px;
       text-align: center;
-      color: #ffd866;
-      text-shadow: 0 0 6px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.4);
       transform-origin: center center;
     }
-    #dir-arrow.moon { color: #f5f0e6; text-shadow: 0 0 6px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.35); }
+    #dir-arrow-sun {
+      color: #ffd866;
+      text-shadow: 0 0 6px rgba(0,0,0,.55), 0 1px 2px rgba(0,0,0,.4);
+    }
+    #dir-arrow-moon {
+      color: #f5f0e6;
+      text-shadow: 0 0 6px rgba(0,0,0,.5), 0 1px 2px rgba(0,0,0,.35);
+    }
   </style>
 </head>
 <body>
@@ -177,12 +182,14 @@
       <canvas id="overlay"></canvas>
       <img id="sun-overlay" alt="" draggable="false">
       <img id="moon-overlay" alt="" draggable="false">
-      <div id="dir-arrow">&gt;</div>
+      <div id="dir-arrow-sun" class="dir-arrow">&gt;</div>
+      <div id="dir-arrow-moon" class="dir-arrow">&gt;</div>
     </div>
 
     <div id="hud">
       <div class="row">
         <span id="status">Chưa bắt đầu</span>
+        <span id="body-flags" style="opacity:0.9;font-variant-numeric:tabular-nums;">Sun: — · Moon: —</span>
       </div>
       <div id="debug"></div>
     </div>
@@ -1825,41 +1832,51 @@
       AROverlay.renderSun(FusionSun.screenX, FusionSun.screenY, sunShow, FusionSun.sunRadius);
       AROverlay.renderMoon(FusionMoon.screenX, FusionMoon.screenY, moonShow, FusionMoon.sunRadius);
 
+      // True/false: thiên thể đang trên chân trời (Alt > 0)
+      const sunUp = sun.altitude > 0;
+      const moonUp = moon.altitude > 0;
+      const flagsEl = document.getElementById('body-flags');
+      if (flagsEl) {
+        flagsEl.textContent = 'Sun: ' + (sunUp ? 'true' : 'false') + ' · Moon: ' + (moonUp ? 'true' : 'false');
+        flagsEl.style.color = (sunUp || moonUp) ? '#a3e635' : '#94a3b8';
+      }
+
       // Status
-      let arrowAngle = null;
-      let arrowIsMoon = false;
       if (!this.running) {
         // leave
       } else if (sunShow || moonShow) {
-        // Model sẵn sàng thì mọi nhận diện đều từ model (thuật toán đã tắt)
         this.setStatus('Đã nhận diện (' + (ModelDetector.state === 'ready' ? 'model · ' + ModelDetector.backend : 'thuật toán') + ')', 'ok');
       } else if (!hasSensor || (!sunInFrame && !moonInFrame)) {
-        // Mũi tên chỉ về thiên thể gần nhất (đang trên/gần chân trời) — không hiện status
-        const cands = [];
-        if (sunPred.dAz != null) cands.push({ p: sunPred, moon: false });
-        if (moonPred.dAz != null) cands.push({ p: moonPred, moon: true });
-        if (hasSensor && cands.length) {
-          const t = cands.reduce((a, b) =>
-            Math.hypot(a.p.dAz, a.p.dAlt) <= Math.hypot(b.p.dAz, b.p.dAlt) ? a : b
-          );
-          arrowAngle = rad2deg(Math.atan2(t.p.dAz, t.p.dAlt));
-          arrowIsMoon = t.moon;
-        }
+        // không set status (đã bỏ "Bạn chưa quay về hướng")
       } else {
         this.setStatus('Không tìm thấy...', 'warn');
       }
 
-      const arrowEl = document.getElementById('dir-arrow');
-      if (arrowEl) {
-        if (arrowAngle == null) {
-          arrowEl.style.display = 'none';
-        } else {
-          arrowEl.style.display = 'block';
-          arrowEl.classList.toggle('moon', arrowIsMoon);
-          // › mặc định hướng phải; xoay để chỉ hướng thiên thể
-          arrowEl.style.transform = 'rotate(' + (arrowAngle - 90).toFixed(1) + 'deg)';
+      // Mũi tên chỉ hướng: hiện cho mọi thiên thể đang trên trời nhưng chưa nhận diện được
+      // → có thể hiện cả 2 mũi tên cùng lúc (vàng = Mặt Trời, trắng sữa = Mặt Trăng)
+      let sunArrowAngle = null;
+      let moonArrowAngle = null;
+      if (this.running && hasSensor) {
+        if (!sunShow && sunPred.dAz != null) {
+          sunArrowAngle = rad2deg(Math.atan2(sunPred.dAz, sunPred.dAlt));
+        }
+        if (!moonShow && moonPred.dAz != null) {
+          moonArrowAngle = rad2deg(Math.atan2(moonPred.dAz, moonPred.dAlt));
         }
       }
+
+      const placeArrow = (el, angle) => {
+        if (!el) return;
+        if (angle == null) {
+          el.style.display = 'none';
+        } else {
+          el.style.display = 'block';
+          // > mặc định hướng phải; xoay để chỉ hướng thiên thể
+          el.style.transform = 'rotate(' + (angle - 90).toFixed(1) + 'deg)';
+        }
+      };
+      placeArrow(document.getElementById('dir-arrow-sun'), sunArrowAngle);
+      placeArrow(document.getElementById('dir-arrow-moon'), moonArrowAngle);
 
       if (this.debug) {
         this.drawDebug(w, h, sun, moon, heading, pitch, sunPred, moonPred, sunImg, moonImg, hasSensor, sunInFrame, moonInFrame);
@@ -1870,6 +1887,7 @@
       const fmt = (img) => img ? `c=${img.confidence.toFixed(2)} r=${img.radiusPx|0}${img.verified ? ' v' : ''}${img.fromModel ? ' M' : ''}` : '—';
       const lines = [
         `Lat ${LocationTime.lat?.toFixed(4)}  Lon ${LocationTime.lon?.toFixed(4)}  (${LocationTime.source})`,
+        `Sun: ${sun.altitude > 0}  Moon: ${moon.altitude > 0}`,
         `Sun  Az ${sun.azimuth.toFixed(1)}° Alt ${sun.altitude.toFixed(1)}°  in=${sunIn}  img:${fmt(sunImg)}  F:${FusionSun.source}`,
         `Moon Az ${moon.azimuth.toFixed(1)}° Alt ${moon.altitude.toFixed(1)}°  in=${moonIn}  img:${fmt(moonImg)}  F:${FusionMoon.source}`,
         `Head ${heading != null ? heading.toFixed(1) : '—'}° (off ${SensorManager.headingOffset.toFixed(1)}°)  Pitch ${pitch != null ? pitch.toFixed(1) : '—'}°`,
