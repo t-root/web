@@ -192,6 +192,8 @@
   const rad2deg = r => r * 180 / Math.PI;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, t) => a + (b - a) * t;
+  // Ngưỡng "thiên thể trên đường chân trời": tâm ở -0.8° vẫn thấy được (khúc xạ + bán kính góc)
+  const HORIZON_ALT = -0.8;
 
   function smoothAngle(prev, next, alpha) {
     let d = ((next - prev + 540) % 360) - 180;
@@ -1653,7 +1655,7 @@
     },
 
     _projectBody(body, heading, pitch) {
-      if (heading == null || pitch == null || body.altitude <= -8) {
+      if (heading == null || pitch == null || body.altitude < HORIZON_ALT) {
         return { dAz: null, dAlt: null, nx: null, ny: null, inFrame: false };
       }
       const dAz = ((body.azimuth - heading + 540) % 360) - 180;
@@ -1676,7 +1678,7 @@
       // Chỉ khi thiên thể đang trên trời và dự đoán hiện tại sai rõ rệt
       const off = pred.nx == null || pred.inFrame === false ||
         Math.hypot(pred.nx - 0.5, pred.ny - 0.5) > 0.6;
-      if (!img || !off || body.altitude < -2 || (img.score || 0) < 0.6 || !vSize.w) { st.n = 0; return; }
+      if (!img || !off || body.altitude < HORIZON_ALT || (img.score || 0) < 0.6 || !vSize.w) { st.n = 0; return; }
       if (img === st.last) return; // chỉ đếm kết quả mới
       st.last = img;
       const m = fusion._mapVideoToDisplay(img.x, img.y, vSize.w, vSize.h, w, h);
@@ -1796,7 +1798,7 @@
         // leave
       } else if (sunShow || moonShow) {
         this.setStatus('Đã nhận diện (' + (ModelDetector.state === 'ready' ? 'model · ' + ModelDetector.backend : 'thuật toán') + ')', 'ok');
-      } else if (sun.altitude <= 0 && moon.altitude <= 0) {
+      } else if (sun.altitude < HORIZON_ALT && moon.altitude < HORIZON_ALT) {
         // Cả hai đều dưới đường chân trời: không có gì để tìm
         this._belowHorizon = true;
         this.setStatus('Mặt Trời và Mặt Trăng đang ở dưới đường chân trời', 'warn');
@@ -1816,10 +1818,10 @@
       const anyInFrame = sunShow || moonShow || sunPred.inFrame || moonPred.inFrame;
       if (this.running && hasSensor && !anyInFrame) {
         // Vật thể dưới đường chân trời thì không thể nhìn thấy → không chỉ hướng
-        if (!sunShow && !sunPred.inFrame && sunPred.dAz != null && sun.altitude > 0) {
+        if (!sunShow && !sunPred.inFrame && sunPred.dAz != null && sun.altitude >= HORIZON_ALT) {
           sunArrowAngle = rad2deg(Math.atan2(sunPred.dAz, sunPred.dAlt));
         }
-        if (!moonShow && !moonPred.inFrame && moonPred.dAz != null && moon.altitude > 0) {
+        if (!moonShow && !moonPred.inFrame && moonPred.dAz != null && moon.altitude >= HORIZON_ALT) {
           moonArrowAngle = rad2deg(Math.atan2(moonPred.dAz, moonPred.dAlt));
         }
       }
@@ -1846,7 +1848,7 @@
       const fmt = (img) => img ? `c=${img.confidence.toFixed(2)} r=${img.radiusPx|0}${img.verified ? ' v' : ''}${img.fromModel ? ' M' : ''}` : '—';
       const lines = [
         `Lat ${LocationTime.lat?.toFixed(4)}  Lon ${LocationTime.lon?.toFixed(4)}  (${LocationTime.source})`,
-        `Sun: ${sun.altitude > 0}  Moon: ${moon.altitude > 0}`,
+        `Sun: ${sun.altitude >= HORIZON_ALT}  Moon: ${moon.altitude >= HORIZON_ALT}`,
         `Sun  Az ${sun.azimuth.toFixed(1)}° Alt ${sun.altitude.toFixed(1)}°  in=${sunIn}  img:${fmt(sunImg)}  F:${FusionSun.source}`,
         `Moon Az ${moon.azimuth.toFixed(1)}° Alt ${moon.altitude.toFixed(1)}°  in=${moonIn}  img:${fmt(moonImg)}  F:${FusionMoon.source}`,
         `Head ${heading != null ? heading.toFixed(1) : '—'}° (off ${SensorManager.headingOffset.toFixed(1)}°)  Pitch ${pitch != null ? pitch.toFixed(1) : '—'}°`,
