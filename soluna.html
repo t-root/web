@@ -1815,10 +1815,11 @@
       // Có thiên thể nào đang trong khung (hoặc đã nhận diện) thì tắt hết mũi tên, kể cả mũi tên của thiên thể kia
       const anyInFrame = sunShow || moonShow || sunPred.inFrame || moonPred.inFrame;
       if (this.running && hasSensor && !anyInFrame) {
-        if (!sunShow && !sunPred.inFrame && sunPred.dAz != null) {
+        // Vật thể dưới đường chân trời thì không thể nhìn thấy → không chỉ hướng
+        if (!sunShow && !sunPred.inFrame && sunPred.dAz != null && sun.altitude > 0) {
           sunArrowAngle = rad2deg(Math.atan2(sunPred.dAz, sunPred.dAlt));
         }
-        if (!moonShow && !moonPred.inFrame && moonPred.dAz != null) {
+        if (!moonShow && !moonPred.inFrame && moonPred.dAz != null && moon.altitude > 0) {
           moonArrowAngle = rad2deg(Math.atan2(moonPred.dAz, moonPred.dAlt));
         }
       }
