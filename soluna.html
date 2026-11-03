@@ -441,10 +441,10 @@
       }
       try {
         // Offset cũ (đặc biệt offset ~180/336°) làm lệch nặng → reset một lần
-        if (localStorage.getItem('sunar_v') !== '4') {
+        if (localStorage.getItem('sunar_v') !== '5') {
           localStorage.removeItem('sunar_ho');
           localStorage.removeItem('sunar_po');
-          localStorage.setItem('sunar_v', '4');
+          localStorage.setItem('sunar_v', '5');
         }
         const ho = localStorage.getItem('sunar_ho');
         const po = localStorage.getItem('sunar_po');
@@ -453,7 +453,7 @@
           // Bỏ offset vô lý (gần 180° thường do lật heading nhầm)
           if (!isNaN(v) && Math.abs(((v + 180) % 360) - 180) < 150) this.headingOffset = v;
         }
-        if (po != null) this.pitchOffset = parseFloat(po);
+        if (po != null) { const pv = parseFloat(po); if (!isNaN(pv)) this.pitchOffset = clamp(pv, -8, 8); }
       } catch (e) {}
       this._updateScreenAngle();
       window.addEventListener('orientationchange', () => {
@@ -552,7 +552,33 @@
       }
       horizonRoll = ((horizonRoll + 540) % 360) - 180;
 
-      return { heading, pitch, roll: gammaDeg, horizonRoll };
+      return { heading, pitch, roll: gammaDeg, horizonRoll, alphaUsed: alphaDeg || 0 };
+    },
+
+    /**
+     * Hướng của một điểm trời (az, alt) trên MÀN HÌNH, tính bằng ma trận xoay đầy đủ
+     * (có cả roll và gần thiên đỉnh). Trả về góc độ: 0 = lên, 90 = phải; null nếu chưa có dữ liệu.
+     */
+    screenDir(azDeg, altDeg) {
+      const A = SensorManager.att;
+      if (!A) return null;
+      const az = deg2rad(azDeg - A.yawAdj);
+      const alt = deg2rad(altDeg - A.pitchAdj);
+      const tx = Math.cos(alt) * Math.sin(az);
+      const ty = Math.cos(alt) * Math.cos(az);
+      const tz = Math.sin(alt);
+      const a = deg2rad(A.alpha), b = deg2rad(A.beta), g = deg2rad(A.gamma);
+      const ca = Math.cos(a), sa = Math.sin(a);
+      const cb = Math.cos(b), sb = Math.sin(b);
+      const cg = Math.cos(g), sg = Math.sin(g);
+      // Toạ độ của vector trong hệ trục thiết bị = R^T · t (R theo chuẩn W3C Z-X'-Y'')
+      const dx = (ca * cg - sa * sb * sg) * tx + (sa * cg + ca * sb * sg) * ty + (-cb * sg) * tz;
+      const dy = (-sa * cb) * tx + (ca * cb) * ty + sb * tz;
+      const o = deg2rad(SensorManager.screenAngle || 0);
+      const right = dx * Math.cos(o) - dy * Math.sin(o);
+      const up = dx * Math.sin(o) + dy * Math.cos(o);
+      if (Math.hypot(right, up) < 1e-6) return null;
+      return rad2deg(Math.atan2(right, up));
     },
 
     _onOrient: function (e) {
@@ -619,6 +645,10 @@
 
       SensorManager.heading = heading;
       SensorManager.pitch = pitch;
+      SensorManager.att = {
+        alpha: att.alphaUsed, beta: e.beta, gamma: e.gamma != null ? e.gamma : 0,
+        yawAdj: heading - att.heading, pitchAdj: pitch - att.pitch
+      };
       SensorManager.roll = roll;
       SensorManager.horizonRoll = horizonRoll;
 
@@ -777,7 +807,7 @@
 
     _apply(dHead, dPitch) {
       SensorManager.headingOffset = ((SensorManager.headingOffset + dHead) % 360 + 360) % 360;
-      SensorManager.pitchOffset = clamp(SensorManager.pitchOffset + dPitch, -45, 45);
+      SensorManager.pitchOffset = clamp(SensorManager.pitchOffset + dPitch, -8, 8);
       // Cho giá trị đã làm mượt nhảy theo ngay để khỏi phải chờ
       if (SensorManager.sHeading != null) SensorManager.sHeading = (SensorManager.sHeading + dHead + 360) % 360;
       if (SensorManager.sPitch != null) SensorManager.sPitch = clamp(SensorManager.sPitch + dPitch, -89, 89);
@@ -1691,7 +1721,7 @@
       // Cần nhiều kết quả liên tiếp cho cùng một độ lệch mới tin (tránh nhầm đèn/vật sáng khác)
       if (st.d && Math.hypot(dHead - st.d.h, dPitch - st.d.p) < 4) st.n++; else st.n = 1;
       st.d = { h: dHead, p: dPitch };
-      if (st.n >= 6 && Math.abs(dPitch) < 40) {
+      if (st.n >= 6 && Math.abs(dPitch) < 10) {
         AutoCal._apply(dHead, dPitch);
         st.n = 0;
       }
@@ -1819,10 +1849,10 @@
       if (this.running && hasSensor && !anyInFrame) {
         // Vật thể dưới đường chân trời thì không thể nhìn thấy → không chỉ hướng
         if (!sunShow && !sunPred.inFrame && sunPred.dAz != null && sun.altitude >= HORIZON_ALT) {
-          sunArrowAngle = rad2deg(Math.atan2(sunPred.dAz, sunPred.dAlt));
+          sunArrowAngle = SensorManager.screenDir(sun.azimuth, sun.altitude);
         }
         if (!moonShow && !moonPred.inFrame && moonPred.dAz != null && moon.altitude >= HORIZON_ALT) {
-          moonArrowAngle = rad2deg(Math.atan2(moonPred.dAz, moonPred.dAlt));
+          moonArrowAngle = SensorManager.screenDir(moon.azimuth, moon.altitude);
         }
       }
 
