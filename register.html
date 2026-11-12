@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đơn đăng ký</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #00000099;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-size: 1.2vw;
+        }
+
+        .form {
+            background-color: #ffffff;
+            padding: 1.5625vw;
+            box-shadow: 0 0 0.78125vw 0 rgba(0, 0, 0, 0.5);
+            width: 40vw;
+            height: 100%;
+            overflow: hidden;
+            padding-top: 2vw;
+            padding-left: 5vw;
+        }
+
+        .form-inner {
+            max-height: 100%;
+            overflow-y: visible;
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+
+        .form-inner::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+
+        .dotted-input {
+            position: relative;
+            font-family: monospace;
+            font-size: 1.2vw;
+            height: 1.875vw;
+            margin-top: 0.390625vw;
+        }
+
+        .dotted-input input,
+        .dotted-input .dots {
+            position: absolute;
+            width: 100%;
+            font-size: 1.2vw;
+            font-family: monospace;
+            line-height: 1.875vw;
+        }
+
+        .dotted-input input {
+            background: transparent;
+            border: none;
+            z-index: 3;
+            outline: none;
+            padding-left: 5vw;
+            padding-right: 0;
+        }
+
+        .dotted-input input[type="password"] {
+            color: transparent;
+            caret-color: #000;
+        }
+
+        .dotted-input input[type="text"] {
+            color: #000;
+        }
+
+        .password-mask {
+            position: absolute;
+            left: 5vw;
+            top: 0;
+            z-index: 2;
+            pointer-events: none;
+            font-family: monospace;
+            font-size: 1.2vw;
+            line-height: 1.875vw;
+            color: #000;
+            white-space: nowrap;
+        }
+
+        .dotted-input .dots {
+            color: #999;
+            z-index: 1;
+            pointer-events: none;
+            overflow: hidden;
+            white-space: nowrap;
+            letter-spacing: 0.1em;
+        }
+
+        button {
+            background: none;
+            border: none;
+            cursor: pointer;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 0.78125vw;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 3;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .password-toggle:hover {
+            color: #333;
+        }
+
+        .fa-fingerprint {
+            transition: color 0.3s ease;
+        }
+
+        .fa-fingerprint:hover {
+            color: red !important;
+        }
+
+        input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 1.40625vw;
+            height: 1.40625vw;
+            border: 0.15625vw solid #000;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #000;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            font-size: 1vw;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .register-options {
+            margin: 1.5625vw 0;
+            padding: 1.171875vw;
+            border: 0.078125vw solid #ddd;
+            border-radius: 0.390625vw;
+        }
+
+        .register-options h3 {
+            margin-bottom: 1.171875vw;
+            text-align: center;
+        }
+
+        .register-options label {
+            display: flex;
+            align-items: center;
+            gap: 0.78125vw;
+            margin: 0.78125vw 0;
+        }
+
+        .signature-text {
+            font-family: 'Dancing Script', cursive;
+            font-size: 2vw;
+            font-weight: bold;
+            min-height: 2.3vw;
+            display: block;
+            margin-top: 0.3vw;
+        }
+
+        h1 {
+            font-size: 2vw;
+            margin: 0.8vw 0;
+        }
+
+        p {
+            font-size: 1.2vw;
+        }
+
+        label {
+            font-size: 1.2vw;
+        }
+
+        span {
+            font-size: 1.2vw;
+        }
+
+        .form-link {
+            text-align: center;
+            margin: 1vw 0;
+            font-size: 1.1vw;
+        }
+
+        .form-link a {
+            color: #333;
+            text-decoration: underline;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .form-link a:hover {
+            color: #000;
+            text-decoration: underline;
+        }
+
+        .header {
+            margin-bottom: 0.5vw;
+        }
+
+        .header-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 1vw;
+            margin: 0.2vw 0;
+        }
+
+        .header-divider {
+            text-align: center;
+            font-style: italic;
+            font-size: 1vw;
+            margin: 0.2vw 0;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .form-intro {
+            margin-bottom: 0.7vw;
+        }
+
+        .form-row {
+            margin-bottom: 0.7vw;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+
+        .form-label {
+            min-width: 10.15625vw;
+        }
+
+        .dotted-input {
+            flex: 1;
+        }
+
+        .dotted-input.password-field {
+            position: relative;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 1.5625vw;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.78125vw;
+        }
+
+        .checkbox-label-small {
+            display: flex;
+            align-items: center;
+            gap: 0.390625vw;
+        }
+
+        .submit-container {
+            text-align: center;
+            margin: 0.8vw 0;
+        }
+
+        .fa-fingerprint {
+            font-size: 5vw;
+            color: black;
+        }
+
+        .signature-section {
+            margin-top: 0.5vw;
+            text-align: right;
+        }
+
+        .signature-label {
+            margin-top: 0.8vw;
+        }
+
+        @media (max-width: 700px) {
+            body {
+                font-size: 2.5vw;
+                padding-top: 15vh;
+                padding-bottom: 15vh;
+            }
+
+            .form {
+                width: 100%;
+                padding: 3vw;
+                padding-top: 3vw;
+                padding-left: 4vw;
+                box-shadow: 0 0 1.5vw 0 rgba(0, 0, 0, 0.5);
+                margin: 0 auto;
+            }
+
+            .form-inner {
+                max-height: 100%;
+                overflow-y: visible;
+            }
+
+            .header {
+                margin-bottom: 1vw !important;
+            }
+
+            .header-title {
+                font-size: 2.2vw !important;
+                margin: 0.5vw 0 !important;
+            }
+
+            .header-divider {
+                font-size: 2.2vw !important;
+                margin: 0.5vw 0 !important;
+            }
+
+            .dotted-input {
+                font-size: 2.5vw;
+                height: 4vw;
+                margin-top: 1vw;
+            }
+
+            .dotted-input input,
+            .dotted-input .dots {
+                font-size: 2.5vw;
+                line-height: 4vw;
+            }
+
+            .dotted-input .dots {
+                letter-spacing: 0.15em;
+            }
+
+            .dotted-input input {
+                padding-left: 4vw;
+            }
+
+            .password-mask {
+                left: 4vw;
+                font-size: 2.5vw;
+                line-height: 4vw;
+            }
+
+            .password-toggle {
+                right: 2vw;
+            }
+
+            input[type="checkbox"] {
+                width: 3vw;
+                height: 3vw;
+                border: 0.3vw solid #000;
+            }
+
+            input[type="checkbox"]:checked::after {
+                font-size: 2vw;
+            }
+
+            .register-options {
+                margin: 2vw 0;
+                padding: 2vw;
+                border: 0.15vw solid #ddd;
+                border-radius: 1vw;
+            }
+
+            .register-options h3 {
+                margin-bottom: 2vw;
+            }
+
+            .register-options label {
+                gap: 1.5vw;
+                margin: 1.2vw 0;
+            }
+
+            .signature-text {
+                font-size: 4vw;
+                min-height: 5vw;
+            }
+
+            h1 {
+                font-size: 5vw;
+            }
+
+            p {
+                font-size: 2.5vw;
+            }
+
+            label {
+                font-size: 2.5vw;
+            }
+
+            span {
+                font-size: 2.5vw;
+            }
+
+            .form-link {
+                font-size: 2.2vw;
+                margin: 2.5vw 0 !important;
+            }
+
+            .form-intro {
+                margin-bottom: 2vw !important;
+            }
+
+            .form-row {
+                margin-bottom: 2vw !important;
+            }
+
+            h1 {
+                margin: 2vw 0 !important;
+            }
+
+            .form-label {
+                min-width: 25vw !important;
+            }
+
+            .checkbox-group {
+                gap: 3vw !important;
+            }
+
+            .checkbox-label {
+                gap: 2vw !important;
+            }
+
+            .checkbox-label-small {
+                gap: 1vw !important;
+            }
+
+            .submit-container {
+                margin: 2vw 0 !important;
+            }
+
+            .signature-section {
+                margin-top: 1.5vw !important;
+            }
+
+            .signature-label {
+                margin-top: 2vw !important;
+            }
+
+            .signature-text {
+                margin-top: 0.5vw !important;
+            }
+
+            .form-link {
+                margin: 2.5vw 0 !important;
+            }
+
+            .fa-fingerprint[style*="font-size"] {
+                font-size: 12vw !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="form">
+        <div class="form-inner">
+            <div class="header">
+                <p class="header-title">
+                    CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
+                </p>
+                <p class="header-title">
+                    Độc lập - Tự do - Hạnh phúc
+                </p>
+                <p class="header-divider">-------------------</p>
+            </div>
+            <h1>ĐƠN ĐĂNG KÝ</h1>
+            <p class="form-intro">Kính gửi: Ban Quản trị hệ thống</p>
+            <form action="register.php" method="post" id="registerForm">
+                <div class="form-row">
+                    <label for="fullname" class="form-label">Họ và tên:</label>
+                    <div class="dotted-input">
+                        <input type="text" name="fullname" id="fullname" placeholder=" " autocomplete="name" required />
+                        <span class="dots" data-fill></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label for="username" class="form-label">Tên đăng nhập:</label>
+                    <div class="dotted-input">
+                        <input type="text" name="username" id="username" placeholder=" " autocomplete="username" required />
+                        <span class="dots" data-fill></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label class="form-label">Đăng ký bằng:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="useEmail" name="useEmail" value="1" checked>
+                            <span>Email</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="usePhone" name="usePhone" value="1">
+                            <span>Số điện thoại</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label for="email" class="form-label">Email:</label>
+                    <div class="dotted-input" id="emailContainer">
+                        <input type="email" name="email" id="email" placeholder=" " autocomplete="email" />
+                        <span class="dots" data-fill></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label for="phone" class="form-label">Số điện thoại:</label>
+                    <div class="dotted-input" id="phoneContainer">
+                        <input type="tel" name="phone" id="phone" placeholder=" " autocomplete="tel" />
+                        <span class="dots" data-fill></span>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label for="password" class="form-label">Mật khẩu:</label>
+                    <div class="dotted-input password-field">
+                        <input type="password" name="password" id="password" placeholder=" " autocomplete="new-password" required />
+                        <span class="password-mask" id="passwordMask"></span>
+                        <span class="dots" data-fill></span>
+                        <i class="fas fa-eye-slash password-toggle" id="togglePassword" aria-label="Hiện/ẩn mật khẩu"></i>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <label for="confirm_password" class="form-label">Xác nhận mật khẩu:</label>
+                    <div class="dotted-input password-field">
+                        <input type="password" name="confirm_password" id="confirm_password" placeholder=" " autocomplete="new-password" required />
+                        <span class="password-mask" id="confirmPasswordMask"></span>
+                        <span class="dots" data-fill></span>
+                        <i class="fas fa-eye-slash password-toggle" id="toggleConfirmPassword" aria-label="Hiện/ẩn mật khẩu"></i>
+                    </div>
+                </div>
+
+                <div class="submit-container">
+                    <button type="submit" aria-label="Đăng ký">
+                        <i class="fas fa-fingerprint"></i>
+                    </button>
+                </div>
+            </form>
+            <div class="form-link">
+                <p>Đã có tài khoản rồi? <a href="login.html">Đăng nhập ngay thôi!</a></p>
+            </div>
+            <div class="signature-section">
+                <p>Ngày: <span id="current-date"></span></p>
+                <p class="signature-label">Chữ ký người đăng ký</p>
+                <p id="signature-name" class="signature-text"></p>
+                <p>(Ghi rõ họ tên)</p>
+                <p id="full-name" class="signature-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fillDots() {
+            const elements = document.querySelectorAll('[data-fill]');
+            elements.forEach(el => {
+                const parent = el.parentElement;
+                const parentWidth = parent.offsetWidth;
+                
+                // Tính toán font-size thực tế
+                const computedStyle = window.getComputedStyle(el);
+                const fontSize = parseFloat(computedStyle.fontSize);
+                
+                // Tính toán chiều rộng có sẵn (trừ padding và icon nếu có)
+                let availableWidth = parentWidth;
+                const input = parent.querySelector('input');
+                if (input) {
+                    const inputPadding = parseFloat(window.getComputedStyle(input).paddingLeft) || 0;
+                    availableWidth -= inputPadding;
+                }
+                
+                // Kiểm tra xem có password toggle icon không
+                const toggleIcon = parent.querySelector('.password-toggle');
+                if (toggleIcon) {
+                    const iconWidth = toggleIcon.offsetWidth || 20;
+                    const iconRight = parseFloat(window.getComputedStyle(toggleIcon).right) || 0;
+                    availableWidth -= (iconWidth + iconRight);
+                }
+                
+                // Tính số dấu chấm dựa trên font-size và letter-spacing
+                const letterSpacing = parseFloat(computedStyle.letterSpacing) || 0;
+                
+                // Tạo một element tạm để đo chiều rộng thực tế của một dấu chấm
+                const tempEl = document.createElement('span');
+                tempEl.style.position = 'absolute';
+                tempEl.style.visibility = 'hidden';
+                tempEl.style.fontSize = computedStyle.fontSize;
+                tempEl.style.fontFamily = computedStyle.fontFamily;
+                tempEl.style.letterSpacing = computedStyle.letterSpacing;
+                tempEl.textContent = '.';
+                document.body.appendChild(tempEl);
+                const charWidth = tempEl.offsetWidth;
+                document.body.removeChild(tempEl);
+                
+                // Tính số dấu chấm và thêm một chút dư để đảm bảo fill đầy
+                const dotCount = Math.ceil(availableWidth / charWidth) + 2;
+                
+                el.textContent = '.'.repeat(Math.max(0, dotCount));
+            });
+        }
+
+        window.addEventListener('load', fillDots);
+        window.addEventListener('resize', fillDots);
+
+        document.getElementById('current-date').textContent = new Date().toLocaleDateString('vi-VN');
+
+        document.getElementById('username').addEventListener('input', function() {
+            document.getElementById('signature-name').textContent = this.value;
+        });
+
+        document.getElementById('fullname').addEventListener('input', function() {
+            document.getElementById('full-name').textContent = this.value;
+        });
+
+        // Xử lý ẩn/hiện mật khẩu
+        const togglePassword = document.getElementById('togglePassword');
+        const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirm_password');
+        const passwordMask = document.getElementById('passwordMask');
+        const confirmPasswordMask = document.getElementById('confirmPasswordMask');
+
+        // Cập nhật mask khi nhập mật khẩu
+        password.addEventListener('input', function() {
+            if (this.type === 'password') {
+                passwordMask.textContent = '*'.repeat(this.value.length);
+            } else {
+                passwordMask.textContent = '';
+            }
+        });
+
+        confirmPassword.addEventListener('input', function() {
+            if (this.type === 'password') {
+                confirmPasswordMask.textContent = '*'.repeat(this.value.length);
+            } else {
+                confirmPasswordMask.textContent = '';
+            }
+        });
+
+        togglePassword.addEventListener('click', function() {
+            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+            password.setAttribute('type', type);
+            // Icon phản ánh trạng thái: password (ẩn) -> fa-eye-slash, text (hiện) -> fa-eye
+            if (type === 'password') {
+                this.classList.remove('fa-eye');
+                this.classList.add('fa-eye-slash');
+                passwordMask.textContent = '*'.repeat(password.value.length);
+            } else {
+                this.classList.remove('fa-eye-slash');
+                this.classList.add('fa-eye');
+                passwordMask.textContent = '';
+            }
+            fillDots(); // Cập nhật lại dấu khi toggle
+        });
+
+        toggleConfirmPassword.addEventListener('click', function() {
+            const type = confirmPassword.getAttribute('type') === 'password' ? 'text' : 'password';
+            confirmPassword.setAttribute('type', type);
+            // Icon phản ánh trạng thái: password (ẩn) -> fa-eye-slash, text (hiện) -> fa-eye
+            if (type === 'password') {
+                this.classList.remove('fa-eye');
+                this.classList.add('fa-eye-slash');
+                confirmPasswordMask.textContent = '*'.repeat(confirmPassword.value.length);
+            } else {
+                this.classList.remove('fa-eye-slash');
+                this.classList.add('fa-eye');
+                confirmPasswordMask.textContent = '';
+            }
+            fillDots(); // Cập nhật lại dấu khi toggle
+        });
+
+        // Xử lý ẩn/hiện email và số điện thoại
+        const useEmail = document.getElementById('useEmail');
+        const usePhone = document.getElementById('usePhone');
+        const emailContainer = document.getElementById('emailContainer');
+        const phoneContainer = document.getElementById('phoneContainer');
+
+        useEmail.addEventListener('change', function() {
+            const emailRow = document.getElementById('emailContainer').parentElement;
+            if (this.checked) {
+                emailRow.style.display = 'flex';
+                // Tự động bỏ chọn số điện thoại
+                usePhone.checked = false;
+                const phoneRow = document.getElementById('phoneContainer').parentElement;
+                phoneRow.style.display = 'none';
+                document.getElementById('phone').value = '';
+            } else {
+                // Kiểm tra nếu cả hai checkbox đều bỏ tích
+                if (!usePhone.checked) {
+                    this.checked = true; // Giữ checkbox email được tích
+                    alert('Phải chọn ít nhất một phương thức đăng ký');
+                    return;
+                }
+                emailRow.style.display = 'none';
+                document.getElementById('email').value = '';
+            }
+        });
+
+        usePhone.addEventListener('change', function() {
+            const phoneRow = document.getElementById('phoneContainer').parentElement;
+            if (this.checked) {
+                phoneRow.style.display = 'flex';
+                fillDots();
+                // Tự động bỏ chọn email
+                useEmail.checked = false;
+                const emailRow = document.getElementById('emailContainer').parentElement;
+                emailRow.style.display = 'none';
+                document.getElementById('email').value = '';
+            } else {
+                // Kiểm tra nếu cả hai checkbox đều bỏ tích
+                if (!useEmail.checked) {
+                    this.checked = true; // Giữ checkbox số điện thoại được tích
+                    alert('Phải chọn ít nhất một phương thức đăng ký');
+                    return;
+                }
+                phoneRow.style.display = 'none';
+                document.getElementById('phone').value = '';
+            }
+        });
+
+        // Ẩn hàng số điện thoại ban đầu
+        document.getElementById('phoneContainer').parentElement.style.display = 'none';
+
+        const form = document.getElementById('registerForm');
+        form.addEventListener('submit', function(e) {
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            
+            if (!email && !phone) {
+                e.preventDefault();
+                alert('Vui lòng chọn ít nhất một phương thức đăng ký: Email hoặc Số điện thoại');
+            }
+        });
+    </script>
+</body>
+</html> 
