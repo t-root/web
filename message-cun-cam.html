@@ -1,0 +1,827 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eaf3f1">
+  <title>Lời nhắc uống thuốc</title>
+  <style>
+    :root {
+      --green: #176b5b;
+      --green-dark: #104d43;
+      --paper: #fffdf9;
+      --paper-edge: #ece4d6;
+      --card-bg: #ffffff;
+      --ink: #223530;
+      --muted: #6e807a;
+      --line: #dce8e4;
+      --env-top: #cfe1da;
+      --env-left: #c2d7cf;
+      --env-right: #bdd3ca;
+      --env-bottom: #c9ddd5;
+      --env-inside: #8faea3;
+      --seal: #b84a39;
+      --seal-dark: #8e3426;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; padding: 24px;
+      display: grid; place-items: center;
+      background: radial-gradient(circle at top, #eef6f3, #e3ede9 70%, #dce7e2);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .app {
+      width: min(100%, 440px); padding: 28px 24px;
+      background: var(--card-bg); border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: 0 20px 50px rgba(22, 62, 52, 0.11);
+      text-align: center;
+    }
+
+    /* Sân khấu phong bì & lá thư dạng mở dọc mượt mà */
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 248px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 6px;
+      overflow: visible;
+    }
+
+    .envelope {
+      position: relative;
+      width: 286px;
+      height: 176px;
+      transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.45s ease;
+      filter: drop-shadow(0 12px 22px rgba(20, 65, 54, 0.14));
+      z-index: 2;
+    }
+
+    .env-back {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #86a59a 0%, var(--env-inside) 55%, #a5c0b6 100%);
+      border-radius: 12px;
+      z-index: 1;
+    }
+
+    /* Lá thư nằm bên trong phong bì */
+    .letter-card {
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      top: 14px;
+      bottom: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
+      border: 1px solid var(--paper-edge);
+      border-radius: 8px;
+      box-shadow: 0 3px 12px rgba(16, 55, 46, 0.08);
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.4s ease;
+    }
+
+    .letter-lines {
+      width: 78%;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .letter-lines span {
+      display: block;
+      height: 6px;
+      border-radius: 999px;
+      background: #e4ede9;
+    }
+    .letter-lines span:nth-child(1) { width: 42%; margin: 0 auto 2px; background: #cbe0d8; }
+    .letter-lines span:nth-child(2) { width: 92%; }
+    .letter-lines span:nth-child(3) { width: 74%; margin: 0 auto; }
+
+    .env-pocket {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .env-pocket .fold-left {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, var(--env-left), #b8cfc6);
+      clip-path: polygon(0 0, 52% 54%, 0 100%);
+    }
+    .env-pocket .fold-right {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(270deg, var(--env-right), #b3cbc2);
+      clip-path: polygon(100% 0, 48% 54%, 100% 100%);
+    }
+    .env-pocket .fold-bottom {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #d6e7e0 0%, var(--env-bottom) 100%);
+      clip-path: polygon(0 100%, 50% 45%, 100% 100%);
+      filter: drop-shadow(0 -2px 4px rgba(16, 55, 46, 0.08));
+    }
+
+    /* Nắp phong bì mở gập lên trên bằng scaleY (ổn định trên mọi trình duyệt & iOS) */
+    .env-flap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 96px;
+      transform-origin: top center;
+      transform: scaleY(1);
+      z-index: 4;
+      pointer-events: none;
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity 0.35s ease;
+    }
+    .env-flap-shape {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, #d7e7e0 0%, var(--env-top) 100%);
+      clip-path: polygon(0 0, 50% 100%, 100% 0);
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+      filter: drop-shadow(0 3px 5px rgba(16, 55, 46, 0.12));
+    }
+
+    .wax-seal {
+      position: absolute;
+      top: 86px;
+      left: 50%;
+      width: 42px;
+      height: 42px;
+      transform: translate(-50%, -50%) scale(1);
+      border-radius: 50%;
+      background: radial-gradient(circle at 32% 30%, #d46250, var(--seal) 62%, var(--seal-dark) 100%);
+      box-shadow:
+        0 4px 10px rgba(142, 52, 38, 0.36),
+        inset 0 2px 3px rgba(255, 255, 255, 0.35),
+        inset 0 -2px 4px rgba(80, 20, 12, 0.4);
+      border: 2px solid rgba(255, 235, 228, 0.35);
+      color: #fff6f2;
+      font-size: 16px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      z-index: 5;
+      transition: transform 0.28s ease, opacity 0.25s ease;
+    }
+
+    /* Bước 1: Dấu sáp bật nhẹ và biến mất */
+    .stage.is-opening .wax-seal {
+      transform: translate(-50%, -50%) scale(1.2);
+      opacity: 0;
+    }
+
+    /* Bước 2: Nắp mở gập lên phía trên */
+    .stage.is-flap-open .env-flap {
+      transform: scaleY(-0.55);
+      opacity: 0.55;
+    }
+
+    /* Bước 3: Lá thư trượt lên khỏi miệng phong bì */
+    .stage.is-letter-rising .letter-card {
+      z-index: 4;
+      transform: translateY(-64px);
+    }
+
+    /* Bước 4: Phong bì hạ thấp và mờ dần, nhường chỗ cho tờ thư mở rộng */
+    .stage.is-unfolded .envelope {
+      transform: translateY(36px) scale(0.94);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Tờ thư mở rộng hiển thị lời nhắn */
+    .letter-full {
+      position: absolute;
+      inset: 4px 0;
+      background: linear-gradient(180deg, #ffffff 0%, var(--paper) 100%);
+      border: 1px solid #e2ece8;
+      border-radius: 16px;
+      padding: 24px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 12px 30px rgba(23, 107, 91, 0.09);
+      opacity: 0;
+      transform: translateY(14px) scale(0.97);
+      pointer-events: none;
+      z-index: 6;
+      transition: opacity 0.45s ease, transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .letter-full.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .letter-full::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1px dashed #dce8e4;
+      border-radius: 11px;
+      pointer-events: none;
+    }
+
+    /* Chế độ hiển thị tức thì (khi reload đang đếm ngược hoặc nghe lại) */
+    .stage.instant,
+    .stage.instant .envelope,
+    .stage.instant .env-flap,
+    .stage.instant .letter-card,
+    .stage.instant .wax-seal,
+    .stage.instant .letter-full {
+      transition: none !important;
+    }
+
+    #message {
+      font-size: 19.5px;
+      line-height: 1.6;
+      font-weight: 650;
+      color: var(--green-dark);
+    }
+
+    .timer-box {
+      display: none;
+      margin-top: 16px;
+      padding: 13px 16px;
+      border-radius: 12px;
+      background: #edf5f2;
+      border: 1px dashed #b9d3cb;
+    }
+    .timer-box.active {
+      display: block;
+    }
+    .timer-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+    #countdown {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--green-dark);
+      font-variant-numeric: tabular-nums;
+    }
+
+    button {
+      width: 100%; margin-top: 18px; padding: 15px 18px;
+      border: 0; border-radius: 12px;
+      background: var(--green); color: white;
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:hover:not(:disabled) { background: var(--green-dark); }
+    button:active:not(:disabled) { transform: translateY(1px); }
+    button:disabled {
+      background: #b8cbc5;
+      color: #eef4f2;
+      cursor: not-allowed;
+    }
+
+    #replayBtn {
+      display: none;
+      margin-top: 10px;
+      padding: 12px 16px;
+      background: #e7f1ee;
+      color: var(--green-dark);
+      border: 1px solid #c3d9d2;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    #replayBtn.visible {
+      display: block;
+    }
+    #replayBtn:hover:not(:disabled) {
+      background: #d7e8e3;
+    }
+
+    #status {
+      min-height: 18px; margin-top: 12px;
+      color: var(--muted); font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div id="stage" class="stage">
+      <div id="envelope" class="envelope" aria-hidden="true">
+        <div class="env-back"></div>
+        <div class="letter-card">
+          <div class="letter-lines">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="env-pocket">
+          <div class="fold-left"></div>
+          <div class="fold-right"></div>
+          <div class="fold-bottom"></div>
+        </div>
+        <div class="env-flap">
+          <div class="env-flap-shape"></div>
+        </div>
+        <div class="wax-seal">✚</div>
+      </div>
+
+      <div id="letterFull" class="letter-full">
+        <div id="message" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <div id="timerBox" class="timer-box" aria-live="off">
+      <div class="timer-label">Đếm ngược đến lần uống tiếp theo</div>
+      <div id="countdown">08:00:00</div>
+    </div>
+
+    <button id="openBtn" type="button">Mở lời nhắn</button>
+    <button id="replayBtn" type="button">Nghe lại lời nhắn</button>
+    <div id="status" role="status"></div>
+  </main>
+
+<script>
+(() => {
+  "use strict";
+
+  const messages = [
+    "Thứ này chẳng có vị trà sữa đâu, nhưng uống xong là bạn có cơ hội khỏe nhanh hơn đấy.",
+    "Đừng nhìn viên thuốc bằng ánh mắt thù hận nữa, nó chỉ muốn giúp bạn sớm thoát cảnh nằm bẹp thôi.",
+    "Bạn không cần phải thích nó, chỉ cần coi đây là nhiệm vụ phụ để sớm quay lại khỏe mạnh.",
+    "Viên thuốc nhỏ xíu vậy thôi mà làm bao người chùn bước, mạnh mẽ lên nào, nuốt gọn một phát!",
+    "Nó chẳng ngon lành gì cả, nhưng đổi lấy sức khỏe thì quá hời rồi còn gì.",
+    "Coi như làm một pha giải cứu cơ thể nhanh gọn lẹ, rồi sau đó bạn được nghỉ ngơi thoải mái.",
+    "Đừng thương lượng với viên thuốc nữa, làm một ngụm nước lớn rồi tiễn nó xuống luôn cho xong chuyện.",
+    "Vị của nó có thể hơi khó chịu thật, nhưng cảm giác khỏe khoắn sau đó mới là phần thưởng xịn nhất.",
+    "Bạn thừa sức thắng một viên thuốc bé tí, đừng để nó làm khó bạn thêm nữa.",
+    "Chỉ mất vài giây cho một lần uống thôi, nhưng công sức giữ nhịp đều đặn mới là thứ giúp bạn mau lành.",
+    "Viên thuốc không đến để trêu ngươi bạn đâu, nó đang đi dọn dẹp mớ rắc rối trong người bạn đấy.",
+    "Uống xong lần này là xong một chặng rồi, cố lên nhé, cơ thể bạn đang chờ khỏe lại từng chút một.",
+    "Viên thuốc không đến để làm phiền bạn. Nó có một nhiệm vụ, còn bạn có nhiệm vụ chăm sóc chính mình.",
+    "Thuốc không thích bạn đâu, nhưng nó đang cố giúp bạn đó.",
+    "Làm một cú dứt khoát như đang bấm skip quảng cáo vậy, xong là tới phần dễ chịu liền.",
+    "Đừng để một viên thuốc tí hon làm cả kế hoạch tung tăng của bạn bị trì hoãn thêm nữa.",
+    "Ngậm lâu chỉ thêm đắng chứ chẳng đổi được gì, nuốt gọn rồi uống nước là xong phim.",
+    "Hôm nay chịu khó hợp tác với viên thuốc một chút, ngày mai bạn có thêm sức để làm mọi thứ mình thích.",
+    "Coi như trả một khoản phí nhỏ đổi lấy một cơ thể nhẹ nhõm hơn từng giờ.",
+    "Bạn mạnh mẽ hơn cái cảm giác ngại uống thuốc nhiều, làm một hơi cho gọn gàng nào!"
+  ];
+
+  const closingMessage = "Hẹn gặp lại bạn sau 8 tiếng nữa. Mà tốt hơn hết là không gặp, vì lúc đó bạn đã khỏe rồi!";
+  const AUDIO_BASE = "https://raw.githubusercontent.com/t-root/droply/refs/heads/main/pharmacy/";
+  const CLOSING_AUDIO = "closing.mp3";
+  const messageAudio = messages.map((_, i) => "msg-" + String(i + 1).padStart(2, "0") + ".mp3");
+  const SILENT_WAV = "data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA";
+  const STORAGE_KEY = "pharmacy_reminder_state_v3";
+  const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+
+  const stage = document.getElementById("stage");
+  const letterFull = document.getElementById("letterFull");
+  const messageBox = document.getElementById("message");
+  const statusBox = document.getElementById("status");
+  const openBtn = document.getElementById("openBtn");
+  const replayBtn = document.getElementById("replayBtn");
+  const timerBox = document.getElementById("timerBox");
+  const countdownEl = document.getElementById("countdown");
+
+  const supported = "speechSynthesis" in window && "SpeechSynthesisUtterance" in window;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  let timerInterval = null;
+  let isProcessing = false;
+  let isReplaying = false;
+  let pendingTimers = [];
+  let activeUtterance = null;
+  let speakFallbackTimer = null;
+  let cachedVoices = [];
+  const audioEl = new Audio();
+  audioEl.preload = "auto";
+
+  function getAudioUrl(text) {
+    if (text === closingMessage) return AUDIO_BASE + CLOSING_AUDIO;
+    const idx = messages.indexOf(text);
+    return idx >= 0 ? AUDIO_BASE + messageAudio[idx] : null;
+  }
+
+  // Mở khóa phát audio trong thao tác bấm của người dùng (cần cho iOS/Safari)
+  function unlockAudio() {
+    try {
+      audioEl.src = SILENT_WAV;
+      const p = audioEl.play();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {}
+  }
+
+  function refreshVoices() {
+    if (!supported) return [];
+    const list = window.speechSynthesis.getVoices();
+    if (Array.isArray(list) && list.length > 0) {
+      cachedVoices = list;
+    }
+    return cachedVoices;
+  }
+
+  if (supported) {
+    refreshVoices();
+    if (typeof window.speechSynthesis.addEventListener === "function") {
+      window.speechSynthesis.addEventListener("voiceschanged", refreshVoices);
+    }
+  }
+
+  function pickVietnameseVoice() {
+    const voices = refreshVoices();
+    if (!voices.length) return null;
+
+    const exactVi = voices.find(v => /vi[-_]VN/i.test(v.lang));
+    if (exactVi) return exactVi;
+
+    const anyVi = voices.find(v => /^vi\b/i.test(v.lang));
+    if (anyVi) return anyVi;
+
+    return null;
+  }
+
+  function clearSpeakFallback() {
+    if (speakFallbackTimer) {
+      clearTimeout(speakFallbackTimer);
+      speakFallbackTimer = null;
+    }
+  }
+
+  function stopSpeech() {
+    clearSpeakFallback();
+    activeUtterance = null;
+    audioEl.onended = null;
+    audioEl.onerror = null;
+    try { audioEl.pause(); } catch (e) {}
+    if (!supported) return;
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+  }
+
+  function clearPendingTimers() {
+    pendingTimers.forEach(id => clearTimeout(id));
+    pendingTimers = [];
+  }
+
+  function createShuffledQueue(excludeFirstIndex = -1) {
+    const indices = Array.from({ length: messages.length }, (_, i) => i);
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    if (indices.length > 1 && indices[0] === excludeFirstIndex) {
+      [indices[0], indices[1]] = [indices[1], indices[0]];
+    }
+    return indices;
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.queue)) {
+          return {
+            queue: parsed.queue.filter(i => Number.isInteger(i) && i >= 0 && i < messages.length),
+            lastIndex: Number.isInteger(parsed.lastIndex) ? parsed.lastIndex : -1,
+            unlockAt: typeof parsed.unlockAt === "number" ? parsed.unlockAt : 0,
+            lastDisplayedText: typeof parsed.lastDisplayedText === "string" ? parsed.lastDisplayedText : "",
+            lastReminderText: typeof parsed.lastReminderText === "string" ? parsed.lastReminderText : ""
+          };
+        }
+      }
+    } catch (e) {}
+    return {
+      queue: createShuffledQueue(),
+      lastIndex: -1,
+      unlockAt: 0,
+      lastDisplayedText: "",
+      lastReminderText: ""
+    };
+  }
+
+  function saveState(state) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  let state = loadState();
+  if (state.queue.length === 0) {
+    state.queue = createShuffledQueue(state.lastIndex);
+    saveState(state);
+  }
+
+  function getNextMessage() {
+    if (state.queue.length === 0) {
+      state.queue = createShuffledQueue(state.lastIndex);
+    }
+    const nextIdx = state.queue.shift();
+    state.lastIndex = nextIdx;
+    if (state.queue.length === 0) {
+      state.queue = createShuffledQueue(nextIdx);
+    }
+    saveState(state);
+    return messages[nextIdx];
+  }
+
+  function formatTime(ms) {
+    const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+    const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, "0");
+    const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, "0");
+    const seconds = String(totalSeconds % 60).padStart(2, "0");
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
+  function resetEnvelopeClosed() {
+    stage.classList.add("instant");
+    stage.classList.remove("is-opening", "is-flap-open", "is-letter-rising", "is-unfolded");
+    letterFull.classList.remove("visible");
+    messageBox.textContent = "";
+    void stage.offsetWidth;
+    stage.classList.remove("instant");
+  }
+
+  function showLetterDirectly(text) {
+    stage.classList.add("instant", "is-opening", "is-flap-open", "is-letter-rising", "is-unfolded");
+    messageBox.textContent = text;
+    letterFull.classList.add("visible");
+    void stage.offsetWidth;
+    stage.classList.remove("instant");
+  }
+
+  function getTextToReplay() {
+    if (state.lastReminderText) return state.lastReminderText;
+    if (state.lastIndex >= 0 && messages[state.lastIndex]) return messages[state.lastIndex];
+    if (state.lastDisplayedText && state.lastDisplayedText !== closingMessage) return state.lastDisplayedText;
+    return "";
+  }
+
+  function updateButtonState() {
+    const remaining = state.unlockAt - Date.now();
+    if (isProcessing) {
+      openBtn.disabled = true;
+      openBtn.textContent = "Đang mở lời nhắn...";
+    } else if (remaining > 0) {
+      openBtn.disabled = true;
+      openBtn.textContent = "Chờ đủ 8 tiếng để mở tiếp";
+    } else {
+      openBtn.disabled = false;
+      openBtn.textContent = "Mở lời nhắn";
+    }
+
+    const replayText = getTextToReplay();
+    const canShowReplay = !isProcessing && (remaining > 0 || Boolean(replayText));
+    replayBtn.classList.toggle("visible", canShowReplay);
+    replayBtn.disabled = isProcessing || isReplaying || !replayText;
+    replayBtn.textContent = isReplaying ? "Đang đọc lại..." : "Nghe lại lời nhắn";
+  }
+
+  function startCountdown(unlockTimestamp) {
+    if (timerInterval) clearInterval(timerInterval);
+    state.unlockAt = unlockTimestamp;
+    saveState(state);
+
+    const tick = () => {
+      const remaining = state.unlockAt - Date.now();
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        state.unlockAt = 0;
+        state.lastDisplayedText = "";
+        saveState(state);
+        timerBox.classList.remove("active");
+        statusBox.textContent = "Đã có lời nhắn mới dành cho bạn!";
+        resetEnvelopeClosed();
+        updateButtonState();
+      } else {
+        timerBox.classList.add("active");
+        countdownEl.textContent = formatTime(remaining);
+        updateButtonState();
+      }
+    };
+
+    tick();
+    timerInterval = setInterval(tick, 250);
+  }
+
+  function speakText(text, onFinished) {
+    const url = getAudioUrl(text);
+    if (!url) {
+      speakWithSynthesis(text, onFinished);
+      return;
+    }
+
+    let done = false;
+    const finishOnce = () => {
+      if (done) return;
+      done = true;
+      audioEl.onended = null;
+      audioEl.onerror = null;
+      if (onFinished) onFinished();
+    };
+    const fallback = () => {
+      if (done) return;
+      done = true;
+      audioEl.onended = null;
+      audioEl.onerror = null;
+      speakWithSynthesis(text, onFinished);
+    };
+
+    audioEl.onended = finishOnce;
+    audioEl.onerror = fallback;
+    audioEl.src = url;
+    try {
+      const p = audioEl.play();
+      if (p && p.catch) p.catch(fallback);
+    } catch (e) {
+      fallback();
+    }
+  }
+
+  function speakWithSynthesis(text, onFinished) {
+    if (!supported) {
+      statusBox.textContent = "Trình duyệt chưa hỗ trợ giọng đọc.";
+      if (onFinished) onFinished();
+      return;
+    }
+
+    clearSpeakFallback();
+
+    let done = false;
+    const finishOnce = () => {
+      if (done) return;
+      done = true;
+      clearSpeakFallback();
+      activeUtterance = null;
+      if (onFinished) onFinished();
+    };
+
+    const estimatedMs = Math.min(25000, Math.max(3500, text.length * 95 + 1500));
+    speakFallbackTimer = setTimeout(finishOnce, estimatedMs);
+
+    try {
+      if (!isIOS && (window.speechSynthesis.speaking || window.speechSynthesis.pending)) {
+        window.speechSynthesis.cancel();
+      }
+      if (window.speechSynthesis.paused && typeof window.speechSynthesis.resume === "function") {
+        window.speechSynthesis.resume();
+      }
+    } catch (e) {}
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    activeUtterance = utterance;
+
+    const viVoice = pickVietnameseVoice();
+    if (viVoice) {
+      utterance.voice = viVoice;
+      utterance.lang = viVoice.lang || "vi-VN";
+    } else {
+      utterance.lang = "vi-VN";
+    }
+
+    utterance.rate = isIOS ? 0.98 : 0.92;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    utterance.onend = () => {
+      finishOnce();
+    };
+
+    utterance.onerror = (err) => {
+      const errType = err && err.error ? err.error : "";
+      if (errType !== "interrupted" && errType !== "canceled") {
+        statusBox.textContent = isIOS
+          ? "Không phát được tiếng (kiểm tra nút gạt im lặng hoặc âm lượng iPhone)."
+          : "Không phát được âm thanh.";
+      }
+      finishOnce();
+    };
+
+    try {
+      window.speechSynthesis.speak(utterance);
+      if (isIOS && typeof window.speechSynthesis.resume === "function") {
+        setTimeout(() => {
+          if (!done && window.speechSynthesis.paused) {
+            try { window.speechSynthesis.resume(); } catch (e) {}
+          }
+        }, 120);
+      }
+    } catch (e) {
+      statusBox.textContent = "Không thể khởi chạy giọng đọc.";
+      finishOnce();
+    }
+  }
+
+  function initUI() {
+    if (state.unlockAt > Date.now()) {
+      showLetterDirectly(state.lastDisplayedText || closingMessage);
+      startCountdown(state.unlockAt);
+    } else {
+      state.unlockAt = 0;
+      state.lastDisplayedText = "";
+      saveState(state);
+      resetEnvelopeClosed();
+      updateButtonState();
+    }
+  }
+
+  openBtn.addEventListener("click", () => {
+    if (isProcessing || state.unlockAt > Date.now()) return;
+
+    stopSpeech();
+    unlockAudio();
+    clearPendingTimers();
+    resetEnvelopeClosed();
+    isProcessing = true;
+    isReplaying = false;
+    updateButtonState();
+    statusBox.textContent = "";
+
+    const mainText = getNextMessage();
+    state.lastReminderText = mainText;
+    saveState(state);
+    messageBox.textContent = mainText;
+
+    pendingTimers.push(setTimeout(() => {
+      stage.classList.add("is-opening");
+    }, 20));
+
+    pendingTimers.push(setTimeout(() => {
+      stage.classList.add("is-flap-open");
+    }, 220));
+
+    pendingTimers.push(setTimeout(() => {
+      stage.classList.add("is-letter-rising");
+    }, 480));
+
+    pendingTimers.push(setTimeout(() => {
+      stage.classList.add("is-unfolded");
+      letterFull.classList.add("visible");
+
+      state.lastDisplayedText = mainText;
+      saveState(state);
+      statusBox.textContent = "Đang đọc lời nhắn...";
+
+      speakText(mainText, () => {
+        if (!isProcessing) return;
+        messageBox.textContent = closingMessage;
+        state.lastDisplayedText = closingMessage;
+        saveState(state);
+        statusBox.textContent = "Đang đọc lời hẹn...";
+
+        const nextUnlock = Date.now() + EIGHT_HOURS_MS;
+        startCountdown(nextUnlock);
+
+        speakText(closingMessage, () => {
+          isProcessing = false;
+          statusBox.textContent = "";
+          updateButtonState();
+        });
+      });
+    }, 1050));
+  });
+
+  replayBtn.addEventListener("click", () => {
+    const textToRead = getTextToReplay();
+    if (isProcessing || isReplaying || !textToRead) return;
+
+    stopSpeech();
+    unlockAudio();
+    isReplaying = true;
+    updateButtonState();
+    statusBox.textContent = "Đang nghe lại lời nhắn...";
+
+    showLetterDirectly(textToRead);
+    state.lastDisplayedText = textToRead;
+    saveState(state);
+
+    speakText(textToRead, () => {
+      isReplaying = false;
+      statusBox.textContent = "";
+      updateButtonState();
+    });
+  });
+
+  initUI();
+})();
+</script>
+</body>
+</html>

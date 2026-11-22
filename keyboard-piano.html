@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>Web Piano — Validation (strict, blank-line after 4 measures) </title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{ --bg:#0f0f10; --muted:#bdbdbd; }
+  body{ background:var(--bg); color:#eee; font-family:Inter, Arial, Helvetica, sans-serif; text-align:center; padding:18px; }
+  h1{ margin:6px 0 8px; font-weight:600; }
+  .controls{ display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; margin:12px 0; }
+  input[type="number"], select{ padding:8px; border-radius:6px; border:1px solid #333; background:#111; color:#eee; }
+  button{ padding:8px 12px; border-radius:8px; border:0; background:#222; color:#fff; cursor:pointer; }
+  .note-row{ display:flex; justify-content:center; margin-top:8px; }
+  .note-input{ width:400px; min-height:80px; max-height:200px; overflow:auto; border-radius:8px; background:#fff; color:#111; padding:8px; box-sizing:border-box; font-family:monospace; white-space:pre-wrap; text-align:center; outline:none; border:1px solid #333; font-size:12px; line-height:1.4; }
+  .status{ margin-top:10px; min-height:40px; max-width:600px; margin-left:auto; margin-right:auto; padding:8px; border-radius:8px; background:rgba(255,255,255,0.04); color:#e6e6e6; border:1px solid rgba(255,255,255,0.03); text-align:left; font-size:13px;}
+  .status.error{ background:#3b0f0f; color:#ffdede; border-color:#550000;}
+  .measures-wrap{ display:flex; justify-content:center; gap:18px; flex-wrap:wrap; margin-top:18px; }
+  .measure{ background:#fff; color:#000; border-radius:12px; padding:12px; min-width:220px; box-shadow:0 10px 30px rgba(0,0,0,0.45); position:relative; }
+  .measure .mnum{ position:absolute; top:8px; right:10px; font-size:12px; color:#333; }
+  .measure-grid{ display:grid; gap:8px; align-items:center; }
+  .cell{ background:#fafafa; border:1px solid #e6e6e6; border-radius:8px; padding:8px; font-weight:700; text-align:center; user-select:none; cursor:pointer; min-height:36px; display:flex; align-items:center; justify-content:center; }
+  .cell.rest{ background:#fff; border-style:dashed; color:transparent; } /* rest: white box (no text) */
+  .cell.active{ background:#000000 !important; color:#fff !important; box-shadow: inset 0 0 8px rgba(0,0,0,0.06); }
+  .cell.invalid{ background:#ffdede; border-color:#d33; color:#600; }
+  .piano-wrap{ margin-top:18px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .piano-controls{ display:flex; justify-content:center; }
+  .modal-overlay{ display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; }
+  .modal-overlay.show{ display:flex; }
+  .modal-content{ background:#1a1a1a; border-radius:12px; padding:24px; padding-top:48px; max-width:900px; max-height:90vh; overflow-y:auto; margin:20px; border:1px solid rgba(255,255,255,0.2); box-shadow:0 10px 40px rgba(0,0,0,0.5); position:relative; }
+  .modal-close{ position:absolute; top:12px; right:12px; background:transparent; border:none; color:#fff; font-size:24px; cursor:pointer; width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:6px; transition:background 0.2s; }
+  .modal-close:hover{ background:rgba(255,255,255,0.1); }
+  .guide-section{ margin-top:0; }
+  .piano{ position:relative; height:220px; }
+  .white{ width:60px; height:220px; background:white; border:1px solid #222; display:inline-block; position:absolute; box-sizing:border-box; }
+  .white .label-top{ position:absolute; top:6px; left:0; right:0; text-align:center; font-size:12px; color:#222; pointer-events:none; }
+  .white .label-bottom{ position:absolute; bottom:6px; left:0; right:0; text-align:center; font-size:11px; color:#666; pointer-events:none; font-weight:600; }
+  .white.active{ background:#ddd; }
+  .black{ width:40px; height:140px; background:#111; position:absolute; top:0; z-index:3; border-radius:0 0 6px 6px; box-shadow:0 2px 6px rgba(0,0,0,0.6); border:1px solid #111; }
+  .black.active{ background:#444; }
+  .black .label-top{ position:absolute; top:6px; left:0; right:0; text-align:center; font-size:11px; color:#fff; pointer-events:none; }
+  .black .label-bottom{ position:absolute; bottom:6px; left:0; right:0; text-align:center; font-size:10px; color:#999; pointer-events:none; font-weight:600; }
+  .label-top.hidden{ display:none; }
+  .label-bottom.hidden{ display:none; }
+  button.active{ background:#444; color:#fff; }
+  .footer-note{ margin-top:12px; color:#bfbfbf; font-size:13px; }
+  .guide-section{ max-width:100%; padding:0; text-align:left; }
+  .guide-section h2{ margin-top:0; margin-bottom:16px; color:#fff; font-size:18px; font-weight:600; }
+  .guide-section h3{ margin-top:16px; margin-bottom:8px; color:#ddd; font-size:15px; font-weight:600; }
+  .guide-section p{ margin:8px 0; color:#ccc; font-size:13px; line-height:1.6; }
+  .guide-section code{ background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; font-family:monospace; color:#fff; font-size:12px; }
+  .guide-section ul{ margin:8px 0; padding-left:24px; color:#ccc; font-size:13px; line-height:1.8; }
+  .guide-section li{ margin:4px 0; }
+  .guide-section .example{ background:rgba(0,0,0,0.2); padding:12px; border-radius:6px; margin:8px 0; font-family:monospace; font-size:12px; color:#fff; white-space:pre-wrap; border-left:3px solid #4a9eff; }
+  @media(max-width:680px){ .note-input{ width:92vw } .status{ width:92vw } .modal-content{ width:92vw; margin:10px; padding:20px; padding-top:40px; } }
+</style>
+</head>
+<body>
+  <h1>Web Piano — Validation (blank-line required every 4 measures)</h1>
+
+  <div class="controls">
+    <label>Tempo <input id="tempo" type="number" value="100" min="30" max="300"></label>
+    <label>Nhịp <select id="timeSig">
+      <option value="2/4">2/4</option>
+      <option value="3/4">3/4</option>
+      <option value="4/4" selected>4/4</option>
+      <option value="2/2">2/2</option>
+      <option value="3/8">3/8</option>
+      <option value="6/8">6/8</option>
+      <option value="9/8">9/8</option>
+      <option value="12/8">12/8</option>
+      <option value="5/4">5/4</option>
+      <option value="7/8">7/8</option>
+    </select></label>
+    <label>Âm sắc 
+      <select id="waveform">
+        <option value="sine" selected>Piano mềm (sine)</option>
+        <option value="triangle">Piano êm (triangle)</option>
+        <option value="square">Piano điện (square)</option>
+        <option value="sawtooth">Piano sáng (sawtooth)</option>
+        <option value="sample">Piano thật (sample)</option>
+        <option value="add-custom">+ Thêm âm sắc tùy chỉnh...</option>
+      </select>
+    </label>
+
+    <button onclick="changeOctave(-1)" title="Giảm quãng (G)">⬅ Giảm quãng (G)</button>
+    <button onclick="changeOctave(1)" title="Tăng quãng (H)">Tăng quãng (H) ➡</button>
+
+    <button id="showLabelsBtn" onclick="toggleLabels()" title="Bật/tắt hiển thị nhãn nốt">🎹 Ẩn nốt</button>
+
+    <button id="guideBtn" onclick="toggleGuide()" title="Xem hướng dẫn">📖 Hướng dẫn</button>
+  </div>
+
+  <div class="note-row">
+    <!-- initial content: example that should produce error (no blank line separating the two groups of 4 measures) -->
+    <div id="noteInput" class="note-input" contenteditable="true" spellcheck="false" aria-label="Note input">
+      D4 F4 G4 A4
+      A4 A4 A4 A4
+      D5 E5 A4 G4
+      E5 D5 G4 G4
+      
+      G4 G4 G4 G4
+      E5 D5 G4 G4
+      F4 F4 D4 G4
+       
+      
+      
+      
+    </div>
+  </div>
+
+  <div id="status" class="status">Nhập nốt. Khi có lỗi, chúng sẽ xuất hiện ở đây.</div>
+
+  <div id="measures" class="measures-wrap" aria-live="polite"></div>
+
+  <div class="piano-wrap">
+    <div class="piano-controls">
+      <button id="autoBtn">▶ Bắt đầu</button>
+    </div>
+    <div id="piano" class="piano" role="application" aria-label="Piano keyboard"></div>
+  </div>
+
+  <div class="footer-note">Luật: mỗi dòng = 1 measure. Tổng phách mỗi dòng phải khớp với nhịp đã chọn. Sau mỗi nhóm measures (thường là 4 measures, riêng 3/8 là 8 measures) cần có một dòng trống để tách đoạn. Rest phải là <code>~n</code>. Không tự động chuyển <code>R-...</code>.</div>
+
+  <!-- Modal hướng dẫn -->
+  <div id="guideModal" class="modal-overlay" onclick="if(event.target === this) toggleGuide()">
+    <div class="modal-content">
+      <button class="modal-close" onclick="toggleGuide()" aria-label="Đóng">×</button>
+      <div class="guide-section">
+    <h2>📖 Hướng dẫn viết nốt nhạc</h2>
+    
+    <h3>1. Cấu trúc cơ bản</h3>
+    <p>• <strong>Mỗi dòng = 1 measure (ô nhịp)</strong></p>
+    <p>• Các nốt/hợp âm trong một measure được cách nhau bởi <strong>khoảng trắng</strong></p>
+    <p>• Tổng số phách trong mỗi dòng phải bằng số phách của nhịp đã chọn</p>
+    
+    <h3>2. Định dạng nốt đơn</h3>
+    <p>Nốt được viết theo định dạng: <code>Nốt + Octave</code></p>
+    <ul>
+      <li><code>C4</code> - Nốt C ở octave 4 (1 phách)</li>
+      <li><code>D#5</code> - Nốt D# ở octave 5 (1 phách)</li>
+      <li><code>Eb3</code> - Nốt E♭ ở octave 3 (1 phách)</li>
+      <li><code>F#2</code> - Nốt F# ở octave 2 (1 phách)</li>
+    </ul>
+    <p><strong>Lưu ý:</strong> Dấu thăng (#) được viết sau tên nốt. Octave từ 0-9.</p>
+    
+    <h3>3. Nốt có độ dài (số phách)</h3>
+    <p>Thêm <code>-n</code> sau nốt để chỉ định số phách:</p>
+    <ul>
+      <li><code>C4-2</code> - Nốt C4 dài 2 phách</li>
+      <li><code>E5-3</code> - Nốt E5 dài 3 phách</li>
+      <li><code>G3-4</code> - Nốt G3 dài 4 phách</li>
+    </ul>
+    <p><strong>Mặc định:</strong> Nếu không ghi <code>-n</code>, nốt sẽ có độ dài 1 phách.</p>
+    
+    <h3>4. Hợp âm (chord)</h3>
+    <p>Nhiều nốt được chơi cùng lúc, cách nhau bởi dấu <code>+</code>:</p>
+    <ul>
+      <li><code>C4+E4+G4</code> - Hợp âm C major (C-E-G) ở octave 4, dài 1 phách</li>
+      <li><code>A4+C5+E5</code> - Hợp âm A minor (A-C-E), dài 1 phách</li>
+      <li><code>D4+F#4+A4-2</code> - Hợp âm D major dài 2 phách</li>
+    </ul>
+    
+    <h3>5. Nghỉ (rest)</h3>
+    <p>Dùng <code>~n</code> để tạo nghỉ, với <code>n</code> là số phách nghỉ:</p>
+    <ul>
+      <li><code>~1</code> - Nghỉ 1 phách</li>
+      <li><code>~2</code> - Nghỉ 2 phách</li>
+      <li><code>~4</code> - Nghỉ 4 phách</li>
+    </ul>
+    <p><strong>Lưu ý:</strong> Không được dùng <code>R</code> hoặc <code>R-n</code>, chỉ dùng <code>~n</code>.</p>
+    
+    <h3>6. Ví dụ hoàn chỉnh</h3>
+    <p><strong>Ví dụ với nhịp 4/4:</strong></p>
+    <div class="example">C4 E4 G4 C5
+D4 F#4 A4 D5
+E4 G4 B4 E5
+C4 E4 G4 C5
+
+F4 A4 C5 F5
+G4 B4 D5 G5
+A4 C5 E5 A5
+C4 E4 G4 C5</div>
+    
+    <p><strong>Ví dụ với nốt dài và nghỉ:</strong></p>
+    <div class="example">C4-2 E4-2
+G4 ~1 C5 ~1
+F4-4
+
+A4+E5 ~2
+G4+D5-2</div>
+    
+    <p><strong>Ví dụ với nhịp 3/4:</strong></p>
+    <div class="example">C4 E4 G4
+D4 F#4 A4
+E4 G4 B4
+C4 E4 G4
+
+F4 A4 C5
+G4 B4 D5
+A4 C5 E5
+C4 E4 G4</div>
+    
+    <h3>7. Quy tắc phân đoạn</h3>
+    <p>Sau mỗi nhóm measures, cần có <strong>một dòng trống</strong> để tách đoạn:</p>
+    <ul>
+      <li><strong>Hầu hết nhịp:</strong> Sau mỗi 4 measures</li>
+      <li><strong>Nhịp 3/8:</strong> Sau mỗi 8 measures (do measure ngắn hơn)</li>
+    </ul>
+    <p><strong>Ví dụ đúng:</strong></p>
+    <div class="example">C4 E4 G4 C5
+D4 F#4 A4 D5
+E4 G4 B4 E5
+C4 E4 G4 C5
+
+F4 A4 C5 F5
+G4 B4 D5 G5</div>
+    
+    <p><strong>Ví dụ sai:</strong> (thiếu dòng trống sau 4 measures)</p>
+    <div class="example">C4 E4 G4 C5
+D4 F#4 A4 D5
+E4 G4 B4 E5
+C4 E4 G4 C5
+F4 A4 C5 F5  ← LỖI: Thiếu dòng trống</div>
+    
+    <h3>8. Kiểm tra lỗi</h3>
+    <p>Hệ thống sẽ tự động kiểm tra và báo lỗi nếu:</p>
+    <ul>
+      <li>Tổng phách trong một dòng không khớp với nhịp đã chọn</li>
+      <li>Thiếu dòng trống phân đoạn</li>
+      <li>Định dạng nốt không hợp lệ</li>
+      <li>Dùng <code>R</code> thay vì <code>~</code> cho nghỉ</li>
+    </ul>
+      </div>
+    </div>
+  </div>
+
+<!-- Input ẩn để tải file ZIP bộ âm sắc -->
+<input type="file" id="sampleZipInput" accept=".zip" style="display:none" />
+
+<!-- Import thư viện xử lý ZIP và piano sample -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://unpkg.com/soundfont-player@0.15.7/dist/soundfont-player.js"></script>
+
+<script>
+/* ---------- Audio ---------- */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioContext();
+
+/* ---------- state ---------- */
+let baseOctave = 4;
+let currentWaveform = 'sine'; // loại âm hiện tại
+let pianoInstrument = null;   // nhạc cụ sample piano (Soundfont)
+let pianoInstrumentLoading = false;
+const customSampleSets = {};  // tên bộ âm sắc -> map noteName -> blob URL
+let currentCustomSetName = null;
+let previousWaveformValue = 'sine';
+let pendingCustomSetName = null;
+let flattenedAutoNotes = [];
+let playTimer = null;
+let playIndex = 0;
+let showLabels = true;
+// Giữ các nốt đang được giữ (sustain) khi nhấn phím / chuột
+// keyId = note + octave (vd: "C4")
+const activeHeldNotes = new Map();
+// Map từ phím trên bàn phím máy tính sang keyId đang được giữ
+const activeKeyboardKeys = {};
+
+/* ---------- UI refs ---------- */
+const tempoEl = document.getElementById('tempo');
+const timeSigEl = document.getElementById('timeSig');
+const noteInput = document.getElementById('noteInput');
+const statusEl = document.getElementById('status');
+const measuresEl = document.getElementById('measures');
+const autoBtn = document.getElementById('autoBtn');
+const showLabelsBtn = document.getElementById('showLabelsBtn');
+const guideBtn = document.getElementById('guideBtn');
+const pianoEl = document.getElementById('piano');
+const waveformEl = document.getElementById('waveform');
+const sampleZipInput = document.getElementById('sampleZipInput');
+
+/* ---------- helpers ---------- */
+// Danh sách file bắt buộc trong bộ âm sắc tùy chỉnh: C1..B7 (7 nốt x 7 quãng)
+const REQUIRED_SAMPLE_FILES = (() => {
+  const res = [];
+  const notes = ["C","D","E","F","G","A","B"];
+  for(let oct=1; oct<=7; oct++){
+    for(const n of notes){
+      res.push(`${n}${oct}.mp3`);
+    }
+  }
+  return res;
+})();
+
+// Đảm bảo đã load nhạc cụ piano sample
+async function ensurePianoInstrument(){
+  if(pianoInstrument || pianoInstrumentLoading) return pianoInstrument;
+  if(typeof Soundfont === 'undefined'){
+    console.warn('Soundfont library not loaded');
+    return null;
+  }
+  pianoInstrumentLoading = true;
+  try{
+    pianoInstrument = await Soundfont.instrument(audioCtx, 'acoustic_grand_piano');
+  } catch(e){
+    console.error('Không load được nhạc cụ piano sample:', e);
+    pianoInstrument = null;
+  } finally{
+    pianoInstrumentLoading = false;
+  }
+  return pianoInstrument;
+}
+
+function getFreq(note, octave){
+  const A4 = 440;
+  const idx = {"C":-9,"C#":-8,"D":-7,"D#":-6,"E":-5,"F":-4,"F#":-3,"G":-2,"G#":-1,"A":0,"A#":1,"B":2};
+  const n = idx[note] + (octave-4)*12;
+  return A4 * Math.pow(2, n/12);
+}
+async function playTone(freq, duration){
+  // Nếu chọn "Piano thật (sample)" thì dùng sample thay vì oscillator
+  if(currentWaveform === 'sample'){
+    const inst = await ensurePianoInstrument();
+    if(inst){
+      // Chuyển freq -> tên nốt gần nhất, ví dụ C4, D#5...
+      // Ở đây ta đã có note+octave khi gọi, nên tốt hơn là truyền thẳng noteName,
+      // nên các chỗ gọi playTone nên truyền thêm noteName nếu muốn chuẩn.
+      // Để đơn giản, ta ước lượng lại từ freq cho gần đúng:
+      const A4 = 440;
+      const n = Math.round(12 * Math.log2(freq / A4));
+      const idxToName = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+      let midi = 69 + n;
+      const name = idxToName[(midi + 1200) % 12];
+      const octave = Math.floor(midi / 12) - 1;
+      const noteName = `${name}${octave}`;
+      inst.play(noteName, audioCtx.currentTime, { duration: Math.max(0.1, duration) });
+      return;
+    }
+    // nếu sample lỗi thì fallback về oscillator
+  }
+  // Nếu đang dùng bộ âm sắc tùy chỉnh từ ZIP
+  if(currentWaveform === 'custom' && currentCustomSetName && customSampleSets[currentCustomSetName]){
+    const set = customSampleSets[currentCustomSetName];
+    const A4 = 440;
+    const n = Math.round(12 * Math.log2(freq / A4));
+    let midi = 69 + n;
+    // Giới hạn trong khoảng C1..B7
+    const MIDI_C1 = 24;
+    const MIDI_B7 = 95;
+    if(midi < MIDI_C1) midi = MIDI_C1;
+    if(midi > MIDI_B7) midi = MIDI_B7;
+    const idxToName = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    const name = idxToName[(midi + 1200) % 12];
+    const octave = Math.floor(midi / 12) - 1;
+    const noteName = `${name}${octave}`;
+    const url = set[noteName];
+    if(url){
+      const audio = new Audio(url);
+      audio.currentTime = 0;
+      audio.play();
+      return;
+    }
+    // nếu không có sample thì fallback về oscillator
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = currentWaveform;
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.4, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+  osc.start(now);
+  osc.stop(now + duration + 0.02);
+}
+
+// Bắt đầu phát nốt ở chế độ "giữ phím" (nhả phím mới tắt)
+function startHeldNote(note, octave){
+  const keyId = `${note}${octave}`;
+  if(activeHeldNotes.has(keyId)) return; // đã phát rồi
+  // Với chế độ sample hoặc custom, tạm thời phát nốt với thời lượng cố định ~1s (không giữ vô hạn được)
+  if(currentWaveform === 'sample' || currentWaveform === 'custom'){
+    const freq = getFreq(note, octave);
+    playTone(freq, 1.0);
+    return;
+  }
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = currentWaveform;
+  osc.frequency.value = getFreq(note, octave);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.4, now + 0.01);
+  osc.start(now);
+  activeHeldNotes.set(keyId, { osc, gain });
+}
+
+function stopHeldNoteById(keyId){
+  const info = activeHeldNotes.get(keyId);
+  if(!info) return;
+  const now = audioCtx.currentTime;
+  // tắt dần để không bị "click" tiếng
+  info.gain.gain.setTargetAtTime(0.0001, now, 0.05);
+  info.osc.stop(now + 0.1);
+  activeHeldNotes.delete(keyId);
+}
+
+function stopHeldNote(note, octave){
+  stopHeldNoteById(`${note}${octave}`);
+}
+
+/* ---------- piano rendering (2 octaves) ---------- */
+const whitePattern = ["C","D","E","F","G","A","B"];
+const blackBetween = {"C":"C#","D":"D#","F":"F#","G":"G#","A":"A#"};
+
+// Mapping từ note sang phím máy tính
+const keyMapRight = {
+  "C":"A","C#":"Q","D":"S","D#":"W","E":"D","F":"F",
+  "F#":"E","G":"X","G#":"R","A":"C","A#":"T","B":"V"
+};
+const keyMapLeft = {
+  "C":"J","C#":"Y","D":"K","D#":"U","E":"L","F":";",
+  "F#":"I","G":"N","G#":"O","A":"M","A#":"P","B":","
+};
+
+// Hàm lấy phím máy tính tương ứng với note và octave
+function getKeyboardKey(note, octave){
+  const octaves = [baseOctave, baseOctave + 1];
+  if(octave === octaves[0]){
+    // Octave thấp hơn (baseOctave): dùng keyMapRight (phím bên phải)
+    return keyMapRight[note] || '';
+  } else if(octave === octaves[1]){
+    // Octave cao hơn (baseOctave + 1): dùng keyMapLeft (phím bên trái)
+    return keyMapLeft[note] || '';
+  }
+  return '';
+}
+
+function renderPiano(){
+  pianoEl.innerHTML = "";
+  const whiteW = 60;
+  const octaves = [baseOctave, baseOctave + 1];
+  const totalWhite = octaves.length * 7;
+  pianoEl.style.width = (totalWhite * whiteW) + 'px';
+  pianoEl.style.height = '220px';
+  pianoEl.style.position = 'relative';
+
+  // render white keys
+  let left = 0;
+  for(const oct of octaves){
+    for(const w of whitePattern){
+      const key = document.createElement('div');
+      key.className = 'white';
+      key.dataset.note = w;
+      key.dataset.octave = String(oct);
+      key.style.left = left + 'px';
+      key.style.top = '0';
+      key.style.width = whiteW + 'px';
+      key.style.height = '220px';
+      const lab = document.createElement('div');
+      lab.className = 'label-top' + (showLabels ? '' : ' hidden');
+      lab.innerText = `${w}${oct}`;
+      key.appendChild(lab);
+      const labBottom = document.createElement('div');
+      const keyboardKey = getKeyboardKey(w, oct);
+      labBottom.className = 'label-bottom' + (showLabels ? '' : ' hidden');
+      labBottom.innerText = keyboardKey || '';
+      key.appendChild(labBottom);
+      key.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        startHeldNote(w, oct);
+        key.classList.add('active');
+        const upHandler = () => {
+          stopHeldNote(w, oct);
+          key.classList.remove('active');
+          window.removeEventListener('mouseup', upHandler);
+          key.removeEventListener('mouseleave', leaveHandler);
+        };
+        const leaveHandler = () => {
+          stopHeldNote(w, oct);
+          key.classList.remove('active');
+          window.removeEventListener('mouseup', upHandler);
+          key.removeEventListener('mouseleave', leaveHandler);
+        };
+        window.addEventListener('mouseup', upHandler);
+        key.addEventListener('mouseleave', leaveHandler);
+      });
+      pianoEl.appendChild(key);
+      left += whiteW;
+    }
+  }
+
+  // render black keys using same left positions
+  left = 0;
+  for(const oct of octaves){
+    for(let i=0;i<whitePattern.length;i++){
+      const w = whitePattern[i];
+      const blackName = blackBetween[w];
+      if(blackName){
+        const key = document.createElement('div');
+        key.className = 'black';
+        key.dataset.note = blackName;
+        key.dataset.octave = String(oct);
+        const leftPos = left + whiteW - 20;
+        key.style.left = leftPos + 'px';
+        key.style.width = '40px';
+        key.style.height = '140px';
+        const lab = document.createElement('div');
+        lab.className = 'label-top' + (showLabels ? '' : ' hidden');
+        lab.innerText = `${blackName}${oct}`;
+        key.appendChild(lab);
+        const labBottom = document.createElement('div');
+        const keyboardKey = getKeyboardKey(blackName, oct);
+        labBottom.className = 'label-bottom' + (showLabels ? '' : ' hidden');
+        labBottom.innerText = keyboardKey || '';
+        key.appendChild(labBottom);
+        key.addEventListener('mousedown', (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          if(audioCtx.state === 'suspended') audioCtx.resume();
+          startHeldNote(blackName, oct);
+          key.classList.add('active');
+          const upHandler = () => {
+            stopHeldNote(blackName, oct);
+            key.classList.remove('active');
+            window.removeEventListener('mouseup', upHandler);
+            key.removeEventListener('mouseleave', leaveHandler);
+          };
+          const leaveHandler = () => {
+            stopHeldNote(blackName, oct);
+            key.classList.remove('active');
+            window.removeEventListener('mouseup', upHandler);
+            key.removeEventListener('mouseleave', leaveHandler);
+          };
+          window.addEventListener('mouseup', upHandler);
+          key.addEventListener('mouseleave', leaveHandler);
+        });
+        pianoEl.appendChild(key);
+      }
+      left += whiteW;
+    }
+  }
+}
+
+/* ---------- parsing & strict validation (each line = measure) ---------- */
+function parseTokenRaw(tokenRaw){
+  // rest must be ~n
+  if(/^~\d+$/.test(tokenRaw)){
+    return { type:'rest', raw: tokenRaw, beats: parseInt(tokenRaw.slice(1)), notes: [] };
+  }
+  // reject R-style rests
+  if(/^R(?:$|-)/i.test(tokenRaw)){
+    return { type:'invalid', raw: tokenRaw, reason: 'Rest phải là ~n; R-... không hợp lệ' };
+  }
+  // core + optional -n
+  const m = tokenRaw.match(/^(.+?)(?:-(\d+))?$/);
+  if(!m) return { type:'invalid', raw: tokenRaw, reason: 'Cú pháp không hợp lệ' };
+  const core = m[1];
+  const beats = m[2] ? parseInt(m[2]) : 1;
+  if(!Number.isInteger(beats) || beats <= 0) return { type:'invalid', raw: tokenRaw, reason: 'Số phách không hợp lệ' };
+  // chord or single
+  const parts = core.split('+');
+  const notes = [];
+  for(const p of parts){
+    const mm = p.match(/^([A-G]#?)(\d)$/i);
+    if(!mm) return { type:'invalid', raw: tokenRaw, reason: `Nốt "${p}" sai định dạng` };
+    notes.push({ note: mm[1].toUpperCase(), octave: parseInt(mm[2]) });
+  }
+  return { type:'note', raw: tokenRaw, beats, notes };
+}
+
+function parseLinesPreserve(){
+  const raw = noteInput.innerText.replace(/\r/g,'');
+  return raw.split('\n').map(l => l.replace(/\s+$/,''));
+}
+
+/**
+ * Parse time signature and return beats per measure and measures per phrase
+ * @param {string} ts - Time signature string (e.g., "4/4", "6/8")
+ * @returns {object} { beatsPerMeasure, measuresPerPhrase }
+ */
+function parseTimeSignature(ts){
+  const parts = ts.split('/');
+  const numerator = parseInt(parts[0]) || 4;
+  const denominator = parseInt(parts[1]) || 4;
+  
+  // Beats per measure: use numerator for simple time, but for compound time (denominator 8)
+  // we still count beats as numerator (e.g., 6/8 = 6 beats, 9/8 = 9 beats)
+  const beatsPerMeasure = numerator;
+  
+  // Measures per phrase (when to require blank line separator):
+  // - 2/4, 3/4, 4/4: every 4 measures
+  // - 2/2: every 4 measures
+  // - 3/8: every 8 measures (shorter measures)
+  // - 6/8, 9/8, 12/8: every 4 measures
+  // - 5/4: every 4 measures
+  // - 7/8: every 4 measures
+  let measuresPerPhrase = 4;
+  if(denominator === 8 && numerator === 3){
+    measuresPerPhrase = 8; // 3/8: shorter, need more measures per phrase
+  } else if(denominator === 8 && numerator === 6){
+    measuresPerPhrase = 4; // 6/8: compound duple
+  } else if(denominator === 8 && numerator === 9){
+    measuresPerPhrase = 4; // 9/8: compound triple
+  } else if(denominator === 8 && numerator === 12){
+    measuresPerPhrase = 4; // 12/8: compound quadruple
+  } else if(denominator === 8 && numerator === 7){
+    measuresPerPhrase = 4; // 7/8: irregular
+  } else if(denominator === 4 || denominator === 2){
+    measuresPerPhrase = 4; // Simple time signatures
+  }
+  
+  return { beatsPerMeasure, measuresPerPhrase };
+}
+
+/**
+ * Strict validation rules:
+ * - Each non-empty input line = one measure.
+ * - Sum beats on line must === beatsPerMeasure (based on time signature).
+ * - After every N measures (based on time signature), the next line (if exists) must be blank (separator).
+ * - Any syntax invalid tokens produce errors.
+ */
+function validateAll(){
+  const lines = parseLinesPreserve();
+  const ts = timeSigEl.value || '4/4';
+  const { beatsPerMeasure, measuresPerPhrase } = parseTimeSignature(ts);
+
+  const errors = [];
+  const measures = [];
+  // gather indices of non-empty lines
+  const nonEmptyIndices = [];
+  for(let i=0;i<lines.length;i++){
+    if(lines[i].trim() !== '') nonEmptyIndices.push(i);
+  }
+
+  for(let idx=0; idx<nonEmptyIndices.length; idx++){
+    const i = nonEmptyIndices[idx];
+    const rawLine = lines[i];
+    const tokenStrs = rawLine.trim().split(/\s+/);
+    let sumBeats = 0;
+    for(const tRaw of tokenStrs){
+      const t = parseTokenRaw(tRaw);
+      if(t.type === 'invalid'){
+        errors.push({ line: i+1, token: tRaw, reason: t.reason || 'Cú pháp không hợp lệ' });
+      } else {
+        sumBeats += (t.beats || 1);
+      }
+    }
+    if(sumBeats !== beatsPerMeasure){
+      errors.push({ line: i+1, reason: `Tổng phách của dòng là ${sumBeats} (phải là ${beatsPerMeasure} theo nhịp ${ts})` });
+    }
+    measures.push({ lineIndex: i, sumBeats });
+  }
+
+  // enforce blank-line separator after each phrase (group of measures)
+  for(let k=measuresPerPhrase; k<=nonEmptyIndices.length; k+=measuresPerPhrase){
+    const afterLine = nonEmptyIndices[k-1] + 1; // line number index after the k-th non-empty line
+    if(afterLine < lines.length){
+      if(lines[afterLine].trim() !== ''){
+        // error at that line: missing blank line separator
+        errors.push({ line: afterLine+1, reason: `Thiếu dòng trống sau ${k} measures (theo quy tắc phân đoạn nhịp ${ts} - mỗi ${measuresPerPhrase} measures)` });
+      }
+    }
+  }
+
+  return { ok: errors.length === 0, errors, measures };
+}
+
+/* ---------- render preview (only when validation ok) ---------- */
+function renderPreview(){
+  const v = validateAll();
+  if(!v.ok){
+    statusEl.className = 'status error';
+    const msgs = v.errors.map(e => `Dòng ${e.line}${e.token ? ` (token: ${e.token})` : ''} — ${e.reason}`);
+    statusEl.innerHTML = `<strong>LỖI:</strong><br>${msgs.join('<br>')}`;
+    measuresEl.innerHTML = '';
+    flattenedAutoNotes = [];
+    return;
+  }
+
+  statusEl.className = 'status';
+  statusEl.innerText = `OK — ready. Tempo ${tempoEl.value} BPM • ${timeSigEl.value}`;
+
+  measuresEl.innerHTML = '';
+  flattenedAutoNotes = [];
+  const lines = parseLinesPreserve();
+  const ts = timeSigEl.value || '4/4';
+  const { beatsPerMeasure } = parseTimeSignature(ts);
+
+  let globalIndex = 0;
+  for(let i=0;i<lines.length;i++){
+    const rawLine = lines[i];
+    if(rawLine.trim() === ''){
+      // spacer
+      const spacer = document.createElement('div'); spacer.style.width='100%'; spacer.style.height='8px';
+      measuresEl.appendChild(spacer);
+      continue;
+    }
+    const tokenStrs = rawLine.trim().split(/\s+/);
+    const measureDiv = document.createElement('div');
+    measureDiv.className = 'measure';
+    const grid = document.createElement('div');
+    grid.className = 'measure-grid';
+    grid.style.gridTemplateColumns = `repeat(${beatsPerMeasure}, minmax(40px, 1fr))`;
+    measureDiv.appendChild(grid);
+
+    for(const tRaw of tokenStrs){
+      const t = parseTokenRaw(tRaw);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.globalIndex = globalIndex;
+      const span = Math.max(1, Math.min((t.beats||1), beatsPerMeasure));
+      cell.style.gridColumn = `span ${span}`;
+      if(t.type === 'invalid'){
+        cell.classList.add('invalid');
+        cell.innerText = t.raw;
+      } else if(t.type === 'rest'){
+        cell.classList.add('rest');
+        cell.innerText = ''; // blank
+      } else {
+        cell.innerText = t.raw;
+      }
+
+      // click to play token
+      cell.addEventListener('click', ()=>{
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        if(t.type === 'note'){
+          const durMs = (t.beats * (60000 / (parseInt(tempoEl.value)||100)));
+          const durSec = durMs / 1000;
+          t.notes.forEach(n => { playTone(getFreq(n.note, n.octave), durSec); highlightPianoKey(n.note, n.octave, durMs); });
+          flashCell(cell, Math.max(120, durMs));
+        } else if(t.type === 'rest'){
+          flashCell(cell, Math.max(120, (t.beats * (60000 / (parseInt(tempoEl.value)||100)))));
+        }
+      });
+
+      grid.appendChild(cell);
+      flattenedAutoNotes.push(t);
+      globalIndex++;
+    }
+
+    const mnum = document.createElement('div');
+    mnum.className = 'mnum';
+    mnum.innerText = `#${i+1}`;
+    measureDiv.appendChild(mnum);
+    measuresEl.appendChild(measureDiv);
+  }
+}
+
+/* ---------- visual helpers ---------- */
+function flashCell(cell, ms){
+  cell.classList.add('active');
+  setTimeout(()=>cell.classList.remove('active'), Math.max(120, ms));
+}
+
+// highlight piano keys by comparing dataset attributes (avoids selector issues with '#')
+function highlightPianoKey(note, octave, ms){
+  const keys = pianoEl.querySelectorAll('.white, .black');
+  const matched = [];
+  keys.forEach(k => {
+    if(k.dataset.note === note && k.dataset.octave === String(octave)){
+      matched.push(k);
+      k.classList.add('active');
+    }
+  });
+  setTimeout(()=> matched.forEach(k => k.classList.remove('active')), Math.max(120, ms));
+}
+
+/* ---------- playback ---------- */
+function startPlayback(){
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  const v = validateAll();
+  if(!v.ok){
+    statusEl.className = 'status error';
+    const msgs = v.errors.map(e => `Dòng ${e.line} — ${e.reason}`);
+    statusEl.innerHTML = `<strong>LỖI:</strong><br>${msgs.join('<br>')}`;
+    return;
+  }
+  renderPreview();
+  if(flattenedAutoNotes.length === 0) return;
+  playIndex = 0;
+  autoBtn.innerText = '⏹ Dừng';
+  scheduleNext();
+}
+function scheduleNext(){
+  if(playIndex >= flattenedAutoNotes.length){
+    stopPlayback();
+    return;
+  }
+  const item = flattenedAutoNotes[playIndex];
+  const tempo = parseInt(tempoEl.value) || 100;
+  const beatMs = 60000 / tempo;
+  const durMs = (item.beats || 1) * beatMs;
+
+  const cell = document.querySelector(`.cell[data-global-index='${playIndex}']`);
+  if(cell) cell.classList.add('active');
+
+  if(item.type === 'note'){
+    const durSec = durMs / 1000;
+    item.notes.forEach(n => {
+      playTone(getFreq(n.note, n.octave), durSec);
+      highlightPianoKey(n.note, n.octave, durMs);
+    });
+  } // rest: visual only
+
+  playTimer = setTimeout(()=> {
+    if(cell) cell.classList.remove('active');
+    playIndex++;
+    scheduleNext();
+  }, durMs);
+}
+function stopPlayback(){
+  autoBtn.innerText = '▶ Bắt đầu';
+  clearTimeout(playTimer);
+  playTimer = null;
+  document.querySelectorAll('.cell.active').forEach(c => c.classList.remove('active'));
+}
+
+/* ---------- octave shift ---------- */
+function changeOctave(step){
+  baseOctave += step;
+  if(baseOctave < 1) baseOctave = 1;
+  if(baseOctave > 6) baseOctave = 6;
+  renderPiano();
+}
+
+/* ---------- toggle labels ---------- */
+function toggleLabels(){
+  showLabels = !showLabels;
+  const labels = pianoEl.querySelectorAll('.label-top, .label-bottom');
+  labels.forEach(lab => {
+    if(showLabels){
+      lab.classList.remove('hidden');
+    } else {
+      lab.classList.add('hidden');
+    }
+  });
+  showLabelsBtn.innerText = showLabels ? '🎹 Ẩn nốt' : '🎹 Hiện nốt';
+  showLabelsBtn.classList.toggle('active', !showLabels);
+}
+
+/* ---------- toggle guide modal ---------- */
+function toggleGuide(){
+  const modal = document.getElementById('guideModal');
+  modal.classList.toggle('show');
+  // Prevent body scroll when modal is open
+  if(modal.classList.contains('show')){
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
+}
+
+/* ---------- keyboard shortcuts ---------- */
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+
+  // Nếu đang gõ trong ô nhập liệu (noteInput, input, textarea, select, contenteditable)
+  // thì bỏ qua toàn bộ shortcut để không ảnh hưởng khi nhập nốt (vd: G5, G#4, ...)
+  const target = e.target;
+  const tagName = target && target.tagName ? target.tagName.toLowerCase() : '';
+  const isEditable =
+    (target && target.isContentEditable) ||
+    tagName === 'input' ||
+    tagName === 'textarea' ||
+    tagName === 'select';
+  if(isEditable) return;
+
+  // Đổi quãng bằng G / H (giữ nguyên như cũ)
+  if(key === 'g'){ changeOctave(-1); e.preventDefault(); return; }
+  if(key === 'h'){ changeOctave(1); e.preventDefault(); return; }
+
+  const keyMapRight = {
+    "a":"C","q":"C#","s":"D","w":"D#","d":"E","f":"F",
+    "e":"F#","x":"G","r":"G#","c":"A","t":"A#","v":"B"
+  };
+  const keyMapLeft = {
+    "j":"C","y":"C#","k":"D","u":"D#","l":"E",";":"F",
+    "i":"F#","n":"G","o":"G#","m":"A","p":"A#",",":"B"
+  };
+
+  // Nếu không nằm trong 2 map phím đàn thì thôi
+  const noteRight = keyMapRight[key];
+  const noteLeft  = keyMapLeft[key];
+  if(!noteRight && !noteLeft) return;
+
+  // Chống autorepeat khi giữ phím, chỉ xử lý lần nhấn đầu tiên
+  if(e.repeat) { e.preventDefault(); return; }
+
+  // Xác định nốt & octave tương ứng
+  const note = noteRight || noteLeft;
+  const octave = noteRight ? baseOctave : (baseOctave + 1);
+  const keyId = `${note}${octave}`;
+
+  // Nếu phím này đã đang giữ thì bỏ qua
+  if(activeKeyboardKeys[key]) return;
+  activeKeyboardKeys[key] = keyId;
+
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  startHeldNote(note, octave);
+
+  // Giữ highlight trên phím đàn cho tới khi nhả phím
+  const pianoKeys = pianoEl.querySelectorAll('.white, .black');
+  pianoKeys.forEach(k => {
+    if(k.dataset.note === note && k.dataset.octave === String(octave)){
+      k.classList.add('active');
+    }
+  });
+});
+
+// Khi nhả phím thì dừng nốt đang giữ
+document.addEventListener('keyup', (e) => {
+  const key = e.key.toLowerCase();
+  const keyId = activeKeyboardKeys[key];
+  if(!keyId) return;
+
+  stopHeldNoteById(keyId);
+  delete activeKeyboardKeys[key];
+
+  // Bỏ highlight trên phím đàn
+  const m = keyId.match(/^([A-G]#?)(\d)$/);
+  if(!m) return;
+  const note = m[1];
+  const octave = m[2];
+  const pianoKeys = pianoEl.querySelectorAll('.white, .black');
+  pianoKeys.forEach(k => {
+    if(k.dataset.note === note && k.dataset.octave === String(octave)){
+      k.classList.remove('active');
+    }
+  });
+});
+
+/* ---------- live handlers ---------- */
+noteInput.addEventListener('input', () => {
+  const v = validateAll();
+  if(!v.ok){
+    statusEl.className = 'status error';
+    const msgs = v.errors.map(e => `Dòng ${e.line}${e.token ? ` (token: ${e.token})` : ''} — ${e.reason}`);
+    statusEl.innerHTML = `<strong>LỖI:</strong><br>${msgs.join('<br>')}`;
+    measuresEl.innerHTML = '';
+    flattenedAutoNotes = [];
+    return;
+  }
+  renderPreview();
+});
+timeSigEl.addEventListener('change', () => noteInput.dispatchEvent(new Event('input')));
+autoBtn.addEventListener('click', ()=> {
+  if(autoBtn.innerText === '⏹ Dừng'){ stopPlayback(); } else { startPlayback(); }
+});
+
+// Xử lý khi người dùng chọn file ZIP bộ âm sắc tùy chỉnh
+if(sampleZipInput){
+  sampleZipInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if(!file || !pendingCustomSetName){
+      waveformEl.value = previousWaveformValue;
+      pendingCustomSetName = null;
+      return;
+    }
+    if(typeof JSZip === 'undefined'){
+      alert('Thư viện JSZip chưa sẵn sàng, không thể đọc file ZIP.');
+      waveformEl.value = previousWaveformValue;
+      pendingCustomSetName = null;
+      return;
+    }
+    try{
+      const zip = await JSZip.loadAsync(file);
+      const missing = [];
+      const filesMap = {};
+      for(const fname of REQUIRED_SAMPLE_FILES){
+        const entry = zip.file(fname);
+        if(!entry){
+          missing.push(fname);
+        } else {
+          const blob = await entry.async('blob');
+          const url = URL.createObjectURL(blob);
+          const noteName = fname.replace('.mp3',''); // C4, D5, ...
+          filesMap[noteName] = url;
+        }
+      }
+      if(missing.length){
+        alert('Bộ âm sắc không hợp lệ. Thiếu các file sau (C1..B7):\n' + missing.join('\n'));
+        waveformEl.value = previousWaveformValue;
+        pendingCustomSetName = null;
+        return;
+      }
+
+      // Lưu bộ âm sắc và thêm option vào select
+      const setName = pendingCustomSetName;
+      customSampleSets[setName] = filesMap;
+      const opt = document.createElement('option');
+      opt.value = 'custom:' + setName;
+      opt.textContent = 'Bộ: ' + setName;
+      waveformEl.appendChild(opt);
+
+      waveformEl.value = opt.value;
+      previousWaveformValue = opt.value;
+      currentWaveform = 'custom';
+      currentCustomSetName = setName;
+      pendingCustomSetName = null;
+      sampleZipInput.value = '';
+      alert('Đã thêm bộ âm sắc "' + setName + '" thành công!');
+    } catch(err){
+      console.error(err);
+      alert('Lỗi khi đọc file ZIP bộ âm sắc.');
+      waveformEl.value = previousWaveformValue;
+      pendingCustomSetName = null;
+    }
+  });
+}
+
+/* ---------- waveform selector ---------- */
+if(waveformEl){
+  waveformEl.addEventListener('change', () => {
+    const val = waveformEl.value || 'sine';
+
+    // Chế độ thêm mới bộ âm sắc tùy chỉnh
+    if(val === 'add-custom'){
+      const name = prompt('Nhập tên cho bộ âm sắc (ví dụ: "Bộ riêng của tôi"):');
+      if(!name){
+        // quay lại lựa chọn trước đó
+        waveformEl.value = previousWaveformValue;
+        return;
+      }
+      if(customSampleSets[name]){
+        alert('Tên bộ âm sắc này đã tồn tại, hãy chọn tên khác.');
+        waveformEl.value = previousWaveformValue;
+        return;
+      }
+      pendingCustomSetName = name;
+      if(sampleZipInput){
+        sampleZipInput.click();
+      } else {
+        alert('Không tìm thấy ô tải file ZIP.');
+        waveformEl.value = previousWaveformValue;
+        pendingCustomSetName = null;
+      }
+      return;
+    }
+
+    previousWaveformValue = val;
+
+    if(val.startsWith('custom:')){
+      currentWaveform = 'custom';
+      currentCustomSetName = val.split(':')[1] || null;
+    } else if(val === 'sample'){
+      currentWaveform = 'sample';
+      currentCustomSetName = null;
+    } else {
+      currentWaveform = val;
+      currentCustomSetName = null;
+    }
+  });
+}
+
+/* ---------- init ---------- */
+renderPiano();
+currentWaveform = waveformEl ? (waveformEl.value || 'sine') : 'sine';
+previousWaveformValue = currentWaveform;
+noteInput.dispatchEvent(new Event('input'));
+</script>
+</body>
+</html>
