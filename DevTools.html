@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Hướng dẫn đầy đủ Chrome DevTools (mô phỏng tương tác)</title>
+<style>
+  :root{--bg:#202124;--panel:#292a2d;--panel2:#303136;--border:#3c4043;--text:#e8eaed;--sub:#9aa0a6;--accent:#8ab4f8;--accent2:#81c995;--warn:#f28b82;--yellow:#fdd663;--code:#2d2e30;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Roboto,Segoe UI,Arial,sans-serif;background:#f1f3f4;color:#202124;}
+  .browser-chrome{max-width:1180px;margin:20px auto;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.25);}
+  .tabbar{background:#dee1e6;display:flex;align-items:center;padding:8px 10px 0;gap:6px;}
+  .browsertab{background:#fff;border-radius:8px 8px 0 0;padding:8px 16px;font-size:13px;color:#3c4043;display:flex;align-items:center;gap:8px;}
+  .addressbar{background:#fff;display:flex;align-items:center;padding:8px 12px;gap:10px;border-bottom:1px solid #dee1e6;}
+  .addressbar span.nb{cursor:pointer;padding:2px 6px;border-radius:50%;}
+  .addressbar span.nb:hover{background:#eee;}
+  .addressbar input{flex:1;border:1px solid #dee1e6;border-radius:16px;padding:6px 14px;font-size:13px;color:#3c4043;background:#f1f3f4;}
+  .pagearea{display:flex;height:600px;background:#fff;position:relative;}
+  .pagearea.dock-bottom{flex-direction:column;}
+  .pagearea.dock-left{flex-direction:row-reverse;}
+  .pageframe{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0;display:flex;flex-direction:column;}
+  .devbar{display:none;background:#f1f3f4;border-bottom:1px solid #dadce0;padding:4px 10px;font-size:12px;color:#3c4043;gap:8px;align-items:center;}
+  .pageframe.device .devbar{display:flex;}
+  .pagecontent{flex:1;padding:24px;overflow:auto;}
+  .pageframe.device .pagecontent{flex:none;width:375px;height:560px;margin:10px auto;border:1px solid #bbb;box-shadow:0 0 8px rgba(0,0,0,.2);}
+  .pagecontent h1{font-size:22px;}
+  .pagecontent p{color:#555;line-height:1.6;}
+  .btnrow{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;}
+  .btnrow button{padding:6px 12px;cursor:pointer;border:1px solid #bbb;border-radius:4px;background:#fafafa;font-size:13px;}
+  .btnrow button:hover{background:#e8f0fe;border-color:#8ab4f8;}
+  .btnrow button:active{background:#d2e3fc;}
+  .dt-ov{outline:2px dashed #a142f4 !important;outline-offset:-2px;}
+  #hl{position:absolute;pointer-events:none;display:none;z-index:5;}
+  #hl .m{position:absolute;background:rgba(246,178,107,.55);}
+  #hl .b{position:absolute;background:rgba(111,168,220,.6);}
+  #hl .lbl{position:absolute;top:-22px;left:0;background:#1a1a1a;color:#fff;font:11px Consolas,monospace;padding:2px 6px;border-radius:3px;white-space:nowrap;}
+  #paused{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:#3c4043;color:#e8eaed;padding:6px 12px;border-radius:4px;font-size:12px;z-index:6;display:none;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  #paused span{cursor:pointer;margin-left:8px;color:#8ab4f8;}
+  .pagearea.isPaused .pagecontent{opacity:.55;pointer-events:none;}
+
+  .devtools-wrap{width:760px;background:var(--bg);color:var(--text);display:flex;flex-direction:column;font-size:12px;border-left:1px solid #000;min-width:0;min-height:0;position:relative;}
+  .dock-bottom .devtools-wrap{width:auto;height:340px;border-left:none;border-top:1px solid #000;}
+  .dock-left .devtools-wrap{border-left:none;border-right:1px solid #000;}
+  .devtools-wrap.hidden{display:none;}
+  .dt-tabs{scrollbar-width:none;display:flex;align-items:center;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto;}
+  .dt-tab{padding:6px 9px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;color:var(--sub);}
+  .dt-tab.active{color:var(--text);border-bottom:2px solid var(--accent);background:var(--panel2);}
+  .dt-tab:hover{color:var(--text);}
+  .dt-icon{padding:6px 8px;cursor:pointer;color:var(--sub);display:flex;align-items:center;font-size:14px;}
+  .dt-icon:hover{color:var(--text);background:#3c4043;}
+  .dt-icon.on{color:var(--accent);background:#394457;}
+  .dt-sep{width:1px;height:18px;background:var(--border);margin:0 2px;}
+  .dt-spacer{flex:1;}
+  #dtbody{flex:1;display:flex;flex-direction:column;min-height:0;position:relative;}
+  .drawer{display:flex;align-items:center;gap:2px;border-top:1px solid var(--border);background:var(--panel);}
+  .drawer div{padding:5px 10px;cursor:pointer;color:var(--sub);white-space:nowrap;}
+  .drawer div.on{color:var(--accent);border-bottom:2px solid var(--accent);}
+  .drawer div:hover{color:var(--text);}
+  kbd{background:#3c4043;border:1px solid #5f6368;border-radius:3px;padding:1px 5px;font-family:monospace;font-size:11px;}
+  code{background:var(--code);padding:1px 5px;border-radius:3px;color:var(--accent2);}
+  .tag{color:#5db0d7;} .attr{color:#9bbbdc;} .val{color:#f29766;}
+  .vs{color:#f29766;} .vb{color:#9980ff;} .vn{color:#9aa0a6;} .vf{color:#e8eaed;font-style:italic;} .ve{color:#ff8080;white-space:pre-wrap;} .vk{color:#9bbbdc;}
+
+  .tb{display:flex;align-items:center;gap:2px;padding:2px 6px;background:var(--panel);border-bottom:1px solid var(--border);min-height:28px;flex-wrap:wrap;}
+  .ti{padding:3px 6px;border-radius:3px;cursor:pointer;color:var(--sub);font-size:13px;user-select:none;}
+  .ti:hover{background:#3c4043;color:var(--text);}
+  .ti.on{color:var(--accent);} .ti.rec.on{color:#f28b82;}
+  .ti.dis{opacity:.35;pointer-events:none;}
+  .tsep{width:1px;height:16px;background:var(--border);margin:0 4px;}
+  .grow{flex:1;}
+  .tfilter{background:var(--bg);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:2px 6px;font-size:11px;width:130px;outline:none;}
+  .tfilter:focus{border-color:var(--accent);}
+  select.tsel{background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:11px;padding:2px 4px;cursor:pointer;}
+  select.tsel option{background:var(--panel);}
+  .tcheck{font-size:11px;color:var(--text);display:flex;gap:3px;align-items:center;cursor:pointer;padding:0 4px;white-space:nowrap;}
+  .pane-body{flex:1;overflow:auto;min-height:0;}
+  .split{flex:1;display:flex;min-height:0;}
+  .nav{flex:0 0 170px;border-right:1px solid var(--border);overflow:auto;background:var(--panel);}
+  .nav-i{padding:3px 8px;cursor:pointer;white-space:nowrap;color:var(--text);display:flex;gap:5px;align-items:center;}
+  .nav-i:hover{background:#2d2e30;}
+  .nav-i.active{background:#264a6b;}
+  .nav-i .ar{width:10px;font-size:8px;color:var(--sub);display:inline-block;}
+  .nav-i .ic{width:14px;color:var(--sub);font-size:12px;}
+  .nav-h{padding:6px 8px 3px;color:var(--sub);font-size:11px;font-weight:bold;cursor:default;}
+  .nav-tabs{display:flex;border-bottom:1px solid var(--border);}
+  .nav-tabs div{padding:4px 8px;cursor:pointer;color:var(--sub);border-bottom:2px solid transparent;white-space:nowrap;}
+  .nav-tabs div.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .empty{padding:30px 24px;color:var(--sub);text-align:center;line-height:1.6;}
+  .empty b{display:block;color:var(--text);font-size:14px;margin-bottom:6px;}
+  .empty a{color:var(--accent);}
+  .btn-blue{background:#8ab4f8;color:#202124;border:none;border-radius:4px;padding:4px 14px;cursor:pointer;font-size:12px;margin:8px 10px;}
+  .btn-blue:hover{background:#aecbfa;}
+  .btn-blue.dis{opacity:.4;pointer-events:none;}
+  /* elements */
+  .el-tree{flex:1;overflow:auto;font-family:Consolas,Menlo,monospace;font-size:12px;line-height:18px;padding:4px 0;min-height:90px;outline:none;}
+  .el-line{white-space:pre;padding-right:8px;cursor:default;}
+  .el-line:hover{background:#2d2e30;}
+  .el-line.selected{background:#264a6b;}
+  .el-arrow{display:inline-block;width:12px;color:var(--sub);font-size:9px;cursor:pointer;}
+  .el-ell{background:#3c4043;border-radius:6px;padding:0 4px;color:var(--sub);font-size:10px;}
+  .el-eq{color:var(--sub);font-style:italic;}
+  .el-crumb{display:flex;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--panel);font-family:Consolas,monospace;overflow:auto;}
+  .el-crumb span{padding:3px 8px;cursor:pointer;white-space:nowrap;}
+  .el-crumb span.cur{background:#3c4043;color:var(--accent);}
+  .el-sub{display:flex;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;}
+  .el-sub div{padding:6px 10px;cursor:pointer;color:var(--sub);white-space:nowrap;border-bottom:2px solid transparent;}
+  .el-sub div:hover{color:var(--text);}
+  .el-sub div.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .el-side{flex:0 0 260px;overflow:auto;background:var(--bg);}
+  .st-filter{display:flex;gap:6px;align-items:center;padding:4px 8px;border-bottom:1px solid var(--border);}
+  .st-filter input.f{flex:1;background:transparent;border:1px solid var(--border);border-radius:12px;padding:3px 10px;color:var(--text);outline:none;font-size:11px;}
+  .st-btn{cursor:pointer;padding:2px 6px;border-radius:3px;}
+  .st-btn:hover{background:#3c4043;}
+  .st-btn.on{background:#394457;color:var(--accent);}
+  .st-force,.st-cls{padding:4px 8px;border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px 14px;}
+  .st-force label,.st-cls label{cursor:pointer;}
+  .st-cls input.f{background:transparent;border:1px solid var(--border);color:var(--text);padding:1px 6px;outline:none;}
+  .st-rule{padding:4px 8px;border-bottom:1px solid var(--border);font-family:Consolas,monospace;}
+  .st-src{float:right;color:var(--sub);text-decoration:underline;}
+  .st-ua .st-src{text-decoration:none;font-style:italic;}
+  .st-prop{padding-left:20px;display:flex;align-items:baseline;gap:2px;}
+  .st-prop input[type=checkbox]{margin:0 3px 0 -16px;visibility:hidden;}
+  .st-rule:hover .st-prop input[type=checkbox],.st-prop.off input[type=checkbox]{visibility:visible;}
+  .st-prop.off{opacity:.55;text-decoration:line-through;}
+  .st-prop .ed{outline:none;min-width:8px;padding:0 1px;}
+  .st-prop .ed:focus{background:#394457;}
+  .st-prop .bad{text-decoration:line-through;}
+  .st-new{background:transparent;border:none;color:var(--text);font:inherit;outline:none;width:100%;margin-left:20px;opacity:0;}
+  .st-rule:hover .st-new,.st-new:focus{opacity:1;border-bottom:1px dashed var(--border);}
+  .st-sel{color:var(--text);}
+  .st-inh{padding:4px 8px;color:var(--sub);border-bottom:1px solid var(--border);}
+  .st-msg{padding:10px;color:var(--sub);line-height:1.6;}
+  .st-msg table{width:100%;border-collapse:collapse;}
+  .st-msg td{border-bottom:1px solid var(--border);padding:2px 4px;}
+  .bm{margin:12px auto;width:250px;text-align:center;font-size:11px;color:#202124;}
+  .bm div{padding:8px 22px;position:relative;}
+  .bm .m{background:#f9cc9d;} .bm .b{background:#fddd9b;} .bm .p{background:#c3d08b;} .bm .c{background:#8cb6c0;padding:8px 6px;}
+  .bm i{position:absolute;left:6px;top:1px;font-style:normal;font-size:9px;}
+  .editbox{position:absolute;inset:30px 20px auto 20px;background:var(--panel);border:1px solid var(--accent);padding:8px;z-index:9;box-shadow:0 4px 16px rgba(0,0,0,.5);}
+  .editbox textarea{width:100%;height:120px;background:var(--bg);color:var(--text);border:1px solid var(--border);font:12px Consolas,monospace;}
+  #ctx{position:fixed;display:none;background:#292a2d;border:1px solid #5f6368;border-radius:4px;padding:4px 0;z-index:99;box-shadow:0 4px 14px rgba(0,0,0,.5);color:#e8eaed;font-size:12px;min-width:200px;}
+  #ctx div{padding:4px 16px;cursor:pointer;} #ctx div:hover{background:#394457;} #ctx hr{border:none;border-top:1px solid #3c4043;margin:3px 0;}
+  /* console */
+  .cl{display:flex;gap:6px;padding:2px 6px;border-bottom:1px solid #2a2b2e;font-family:Consolas,monospace;font-size:12px;}
+  .cl-ico{width:14px;flex:none;text-align:center;}
+  .cl-msg{flex:1;white-space:pre-wrap;word-break:break-word;}
+  .cl-src{color:var(--sub);text-decoration:underline;cursor:pointer;flex:none;}
+  .cl-cnt{background:#3c4043;border-radius:8px;padding:0 6px;height:15px;font-size:10px;}
+  .cl.in{color:var(--sub);} .cl.warn{background:#332b00;color:#f4bd00;border-bottom-color:#4d4100;} .cl.error{background:#290000;color:#ff8080;border-bottom-color:#5c0000;}
+  .cl.debug{color:#9aa0a6;}
+  details.obj{display:inline-block;vertical-align:top;} details.obj summary{cursor:pointer;} details.obj .pr{padding-left:16px;}
+  .tag-link{cursor:pointer;} .tag-link:hover{background:#2d2e30;}
+  .con-settings{display:flex;gap:6px 14px;flex-wrap:wrap;padding:4px 10px;background:var(--panel2);border-bottom:1px solid var(--border);}
+  .console-input{display:flex;align-items:center;gap:6px;border-top:1px solid var(--border);padding:4px 6px;}
+  .console-input span{color:var(--accent);}
+  .console-input input{flex:1;background:transparent;border:none;color:var(--text);font-family:Consolas,monospace;font-size:12px;outline:none;}
+  table.sim{border-collapse:collapse;font-size:11px;margin:2px 0;}
+  table.sim th,table.sim td{border:1px solid var(--border);padding:2px 8px;text-align:left;}
+  table.sim th{background:var(--panel2);}
+  /* sources */
+  .editor{flex:1;overflow:auto;font-family:Consolas,monospace;font-size:12px;line-height:18px;background:var(--bg);}
+  .ed-line{display:flex;white-space:pre;} .ed-line:hover{background:#2d2e30;} .ed-line.cur{background:#3b3b1d;}
+  .ed-ln{width:42px;flex:none;text-align:right;padding-right:8px;color:var(--sub);cursor:pointer;user-select:none;}
+  .ed-ln.bp{background:#1a73e8;color:#fff;clip-path:polygon(0 0,88% 0,100% 50%,88% 100%,0 100%);}
+  .ed-ln.bp.cond{background:#f9ab00;color:#202124;} .ed-ln.bp.off{background:#3c4043;color:#9aa0a6;}
+  .k{color:#c792ea;} .st{color:#ce9178;} .cm{color:#6a9955;}
+  .ed-status{padding:2px 8px;background:var(--panel);border-top:1px solid var(--border);color:var(--sub);font-size:11px;}
+  .dbg{flex:0 0 200px;overflow:auto;border-top:1px solid var(--border);background:var(--panel);}
+  .dbg details{border-bottom:1px solid var(--border);}
+  .dbg summary{padding:3px 8px;cursor:pointer;font-weight:bold;display:flex;justify-content:space-between;}
+  .dbg .dbody{padding:3px 14px;color:var(--sub);}
+  .dbg .dbody div{color:var(--text);padding:1px 0;white-space:nowrap;}
+  .pausebanner{background:#3b3b1d;color:#fdd663;padding:3px 8px;}
+  /* network */
+  table.net{width:100%;border-collapse:collapse;font-size:11px;}
+  table.net th{position:sticky;top:0;background:var(--panel);border:1px solid var(--border);border-top:none;padding:3px 6px;text-align:left;font-weight:normal;}
+  table.net td{border-left:1px solid var(--border);padding:2px 6px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;}
+  table.net tr.r{cursor:default;} table.net tr.r:nth-child(even) td{background:#25262a;}
+  table.net tr.r:hover td{background:#2d2e30;} table.net tr.r.sel td{background:#264a6b;}
+  table.net tr.err td{color:var(--warn);}
+  .wf{height:8px;border-radius:2px;background:#8ab4f8;position:relative;min-width:2px;}
+  .pills{display:flex;gap:2px;padding:3px 6px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--panel);align-items:center;}
+  .pill{padding:1px 7px;border-radius:3px;cursor:pointer;font-size:11px;color:var(--text);}
+  .pill:hover{background:#3c4043;} .pill.active{background:#394457;color:var(--accent);}
+  .net-sum{padding:3px 8px;color:var(--sub);border-top:1px solid var(--border);background:var(--panel);font-size:11px;}
+  .net-detail{flex:0 0 45%;border-top:1px solid var(--border);display:flex;flex-direction:column;min-height:0;}
+  .net-detail pre{margin:0;padding:8px;font:11px Consolas,monospace;white-space:pre-wrap;}
+  .kv{padding:2px 10px;font-size:11px;display:flex;gap:6px;} .kv b{color:var(--sub);font-weight:normal;min-width:150px;}
+  .kvh{padding:4px 10px;font-weight:bold;background:var(--panel2);}
+  /* performance */
+  .lane{display:flex;align-items:flex-end;height:26px;border-bottom:1px solid var(--border);position:relative;}
+  .lane b{position:absolute;left:4px;top:1px;font-size:10px;color:var(--sub);font-weight:normal;z-index:2;}
+  .lane i{flex:1;align-self:flex-end;}
+  .ruler{display:flex;justify-content:space-between;color:var(--sub);font-size:10px;padding:2px 6px;border-bottom:1px solid var(--border);}
+  .flame{position:relative;height:84px;margin:6px;background:var(--bg);}
+  .flame i{position:absolute;height:16px;font-style:normal;font-size:10px;line-height:16px;padding:0 3px;overflow:hidden;white-space:nowrap;color:#202124;border:1px solid #202124;cursor:pointer;}
+  .flame i.sel{outline:2px solid #fff;}
+  .flame i.long{background-image:repeating-linear-gradient(45deg,transparent 0 3px,rgba(255,0,0,.55) 3px 6px);}
+  .perf-tabs{display:flex;border-top:1px solid var(--border);background:var(--panel);}
+  .perf-tabs div{padding:4px 10px;color:var(--sub);cursor:pointer;} .perf-tabs div.active{color:var(--accent);border-bottom:2px solid var(--accent);}
+  .catbar{display:flex;height:14px;margin:6px 10px;border-radius:3px;overflow:hidden;}
+  .legend span{display:inline-block;width:10px;height:10px;margin-right:4px;}
+  /* memory/lh/sec */
+  .mem-opt{display:flex;gap:8px;padding:6px 10px;cursor:pointer;} .mem-opt small{display:block;color:var(--sub);margin-top:2px;}
+  .bars{display:flex;align-items:flex-end;height:80px;margin:8px 10px;border-bottom:1px solid var(--border);gap:1px;} .bars i{flex:1;background:#8ab4f8;min-width:2px;}
+  .sec-ico{font-size:34px;color:var(--accent2);} .sec-box{padding:14px;} .sec-box h4{margin:12px 0 4px;color:var(--text);}
+  .lh-wrap{padding:10px 14px;} .lh-wrap label{margin-right:12px;cursor:pointer;}
+  .gauges{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;} .gw{text-align:center;font-size:11px;}
+  .gauge{width:56px;height:56px;border-radius:50%;background:conic-gradient(var(--c) calc(var(--v)*1%),#3c4043 0);display:grid;place-items:center;position:relative;margin:0 auto 4px;}
+  .gauge:before{content:"";position:absolute;inset:5px;background:var(--bg);border-radius:50%;} .gauge span{position:relative;font-size:16px;color:var(--c);}
+  .prog{height:4px;background:#3c4043;border-radius:2px;margin:10px 0;} .prog i{display:block;height:100%;background:var(--accent);border-radius:2px;}
+  .aud{padding:3px 0;border-bottom:1px solid var(--border);} .aud.fail{color:#ff8080;} .aud.pass{color:var(--accent2);}
+  .aud a{color:var(--accent);cursor:pointer;text-decoration:underline;}
+  #pal{position:absolute;top:34px;left:50%;transform:translateX(-50%);width:420px;background:var(--panel);border:1px solid #5f6368;z-index:20;display:none;box-shadow:0 6px 20px rgba(0,0,0,.6);}
+  #pal input{width:100%;background:var(--bg);border:none;border-bottom:1px solid var(--border);color:var(--text);padding:6px 10px;outline:none;font-size:13px;}
+  #pal div.it{padding:4px 12px;cursor:pointer;} #pal div.it.sel,#pal div.it:hover{background:#264a6b;}
+
+  #helpbar{flex:0 0 auto;max-height:170px;overflow:auto;background:#1b2635;border-top:1px solid #3b5a85;color:#cfe0f7;padding:5px 10px;font-size:12px;line-height:1.5;}
+  #helpbar b{color:#8ab4f8;} #helpbar code{background:#2d3d52;}
+  #helpbar.off{display:none;}
+  .learn{margin:10px 14px;padding:8px 12px;background:#1b2635;border-left:3px solid #8ab4f8;color:#cfe0f7;line-height:1.6;text-align:left;font-size:12px;}
+  .learn b{color:#8ab4f8;}
+
+  .snip{margin-top:5px;padding-top:4px;border-top:1px dashed #3b5a85;}
+  .snip .t{color:#81c995;font-weight:bold;}
+  .sn{display:flex;gap:8px;align-items:flex-start;margin:2px 0;}
+  .sn code{flex:1;background:#101820;color:#d7e3f4;padding:2px 6px;border-radius:3px;font:11px Consolas,monospace;white-space:pre-wrap;word-break:break-all;}
+  .sn .run{cursor:pointer;background:#1a73e8;color:#fff;border-radius:3px;padding:1px 8px;white-space:nowrap;user-select:none;}
+  .sn .run:hover{background:#4a8cf0;}
+  .snout{color:#9aa0a6;margin:0 0 3px 6px;font:11px Consolas,monospace;white-space:pre-wrap;}
+  /* guide */
+  .guide-wrap{max-width:1180px;margin:0 auto 60px;background:#fff;border-radius:10px;padding:24px 28px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+  .guide-wrap h2{border-bottom:2px solid #eee;padding-bottom:6px;}
+  .guide-wrap table{width:100%;border-collapse:collapse;margin:10px 0 20px;font-size:13px;}
+  .guide-wrap th,.guide-wrap td{border:1px solid #e0e0e0;padding:6px 10px;text-align:left;} .guide-wrap th{background:#f5f5f5;}
+  .guide-wrap kbd{background:#f1f3f4;color:#202124;border:1px solid #dadce0;border-bottom-width:2px;}
+  .guide-wrap code{background:#f1f3f4;color:#c5221f;}
+  .topbar{max-width:1180px;margin:16px auto 0;text-align:center;color:#3c4043;} .topbar h1{margin-bottom:4px;} .topbar p{color:#5f6368;font-size:14px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🛠️ Hướng dẫn đầy đủ chức năng Chrome DevTools</h1>
+  <p>Mô phỏng hoạt động thật — bấm các nút trong trang demo, mở DevTools bằng <b>F12</b>, rồi thử: Inspect (<b>Ctrl+Shift+C</b>), sửa CSS trong Styles, gõ lệnh trong Console, đặt breakpoint ở Sources, xem request ở Network, ghi Performance, chụp Heap snapshot, sửa Local storage…</p>
+</div>
+
+<div class="browser-chrome">
+  <div class="tabbar"><div class="browsertab">🌐 Trang demo &nbsp; ✕</div></div>
+  <div class="addressbar">
+    <span class="nb">←</span><span class="nb">→</span><span class="nb" id="reload" title="Tải lại trang (mô phỏng)">⟳</span>
+    <input value="https://example.com" readonly>
+    <button id="dtbtn" style="border:1px solid #dadce0;border-radius:4px;background:#fff;padding:5px 10px;cursor:pointer" title="F12 / Ctrl+Shift+I">⋮ DevTools (F12)</button>
+  </div>
+  <div class="pagearea" id="pagearea">
+    <div class="pageframe" id="pageframe">
+      <div class="devbar"><select id="devsel"><option value="375">iPhone SE 375 × 667</option><option value="768">iPad 768 × 1024</option><option value="1100">Responsive 1100</option></select><span>Dimensions: Responsive ▾</span></div>
+      <div class="pagecontent" id="page">
+<h1 id="demo-title">Trang web mẫu</h1>
+<p id="demo-text">Đây là nội dung giả lập để bạn thực hành. Mở DevTools (<b>F12</b>) rồi thử Inspect vào các phần tử, sửa CSS, gõ lệnh vào Console… Đã đặt sẵn breakpoint ở dòng 2 của <code>app.js</code> (Sources) — bấm nút “Tính tổng” để thấy trình debug dừng lại.</p>
+<div class="btnrow">
+<button id="demo-btn" onclick="this.textContent='Đã click!'" style="padding:8px 16px;">Nút demo (thử Inspect vào đây)</button>
+<button id="btn-calc" onclick="calculate()">Tính tổng</button>
+<button id="btn-api" onclick="loadData('/api/data')">Gọi API /api/data</button>
+<button id="btn-404" onclick="loadData('/api/missing')">Gọi API lỗi (404)</button>
+<button id="btn-err" onclick="causeError()">Gây lỗi JS</button>
+<button id="btn-leak" onclick="makeLeak()">Tạo memory leak</button>
+</div>
+<p class="note" style="margin-top:30px;color:#999;font-size:12px;">id="demo-title" · id="demo-text" · id="demo-btn"</p>
+      </div>
+      <div id="hl"><div class="m"></div><div class="b"></div><div class="lbl"></div></div>
+      <div id="paused">Paused in debugger <span data-pa="resume">▶ Resume</span></div>
+    </div>
+    <div class="devtools-wrap hidden" id="dtwrap">
+      <div class="dt-tabs" id="dttabs"></div>
+      <div id="dtbody"></div>
+      <div id="helpbar"></div>
+      <div class="drawer" id="drawer"></div>
+      <div id="pal"><input placeholder="Run a command (Ctrl+Shift+P)" id="palin"><div id="pallist"></div></div>
+    </div>
+  </div>
+</div>
+<div id="ctx"></div>
+
+<script>
+/* ================== DevTools mô phỏng ================== */
+(function(){
+const AEL=EventTarget.prototype.addEventListener, REL=EventTarget.prototype.removeEventListener;
+const LREG=[];
+EventTarget.prototype.addEventListener=function(t,f,o){LREG.push({target:this,type:t,fn:f,opt:o});return AEL.call(this,t,f,o);};
+EventTarget.prototype.removeEventListener=function(t,f,o){const i=LREG.findIndex(x=>x.target===this&&x.type===t&&x.fn===f);if(i>=0)LREG.splice(i,1);return REL.call(this,t,f,o);};
+const on=(t,e,f,o)=>AEL.call(t,e,f,o);
+const q=s=>document.querySelector(s), esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dtwrap=q('#dtwrap'),$tabs=q('#dttabs'),$body=q('#dtbody'),page=q('#page'),frame=q('#pageframe'),hl=q('#hl'),pagearea=q('#pagearea'),ctx=q('#ctx'),$drawer=q('#drawer');
+const HTML=document.documentElement,BODY=document.body,PAGE_HTML=page.innerHTML;
+let LOAD0=performance.now();const now=()=>performance.now()-LOAD0;
+const S={tab:'elements',inspect:false,dock:'right',device:false};
+const fmtB=n=>n<1024?n+' B':(n/1024).toFixed(1)+' kB';
+const TABS=[['elements','Elements'],['console','Console'],['sources','Sources'],['network','Network'],['performance','Performance'],['memory','Memory'],['application','Application'],['security','Security'],['lighthouse','Lighthouse']];
+
+/* ---------- state ---------- */
+const E={sel:null,exp:new Set(),sub:'styles',filter:'',hov:false,cls:false,forced:{},showAll:false,ov:new Set(),editing:null,undo:[],bp:new Map()};
+const C={lines:[],filter:'',level:'all',hist:[],hi:0,settings:false,preserve:false,evalId:0,gd:0,err:0,warn:0};
+const N={rec:true,list:[],sel:null,sub:'headers',filter:'',type:'All',preserve:false,noCache:false,throttle:1,id:0,seen:new Set()};
+const SR={file:'app.js',bps:[{file:'app.js',line:2,on:true,cond:''}],active:true,paused:null,watch:[],condLine:null,addWatch:false,nav:'page',goto:0};
+let P={rec:false,tasks:[],t0:0,t1:0,done:false,sel:-1,sub:'summary',cpu:1,timer:null};
+const M={snaps:[],type:'heap',run:false,samples:[],timer:null,view:-1};
+const A={sel:'ls:o',exp:new Set(['ls']),selKey:null};
+const L={st:'idle',p:0,res:null};
+const SEC={};
+
+/* ---------- storage / cookie shims ---------- */
+function mkStorage(init){const m=new Map(Object.entries(init||{}));const api={getItem:k=>m.has(String(k))?m.get(String(k)):null,setItem(k,v){m.set(String(k),String(v));ch();},removeItem(k){m.delete(String(k));ch();},clear(){m.clear();ch();},key:i=>[...m.keys()][i]??null};
+ let ch=()=>{if(S.tab==='application')refresh();};
+ return new Proxy(api,{get(t,k){if(k==='length')return m.size;if(k==='__map')return m;if(k in t)return t[k];return m.has(k)?m.get(k):undefined;},set(t,k,v){m.set(String(k),String(v));ch();return true;},deleteProperty(t,k){m.delete(k);ch();return true;},ownKeys:()=>[...m.keys()],getOwnPropertyDescriptor:(t,k)=>m.has(k)?{value:m.get(k),enumerable:true,configurable:true,writable:true}:undefined});}
+const LS=mkStorage({token:'abc123',theme:'dark'}),SS=mkStorage({tab:'1'});
+Object.defineProperty(window,'localStorage',{get:()=>LS,configurable:true});Object.defineProperty(window,'sessionStorage',{get:()=>SS,configurable:true});
+const CK=new Map([['sid',{value:'x9f2c1a',domain:'example.com',path:'/',expires:'Session',httpOnly:true,secure:true,sameSite:'Lax'}],['lang',{value:'vi',domain:'example.com',path:'/',expires:'2027-01-01T00:00:00.000Z',httpOnly:false,secure:false,sameSite:'Lax'}]]);
+Object.defineProperty(document,'cookie',{configurable:true,get:()=>[...CK].filter(([k,v])=>!v.httpOnly).map(([k,v])=>k+'='+v.value).join('; '),set(s){const p=String(s).split(';').map(x=>x.trim());const[k,...v]=p[0].split('=');const o={value:v.join('='),domain:'example.com',path:'/',expires:'Session',httpOnly:false,secure:false,sameSite:'Lax'};let del=false;p.slice(1).forEach(a=>{const[n,val]=a.split('=');const l=n.toLowerCase();if(l==='path')o.path=val;if(l==='domain')o.domain=val;if(l==='secure')o.secure=true;if(l==='samesite')o.sameSite=val;if(l==='expires'){const d=new Date(val);if(d<new Date())del=true;else o.expires=d.toISOString();}if(l==='max-age'){if(+val<=0)del=true;else o.expires=new Date(Date.now()+val*1000).toISOString();}});if(del)CK.delete(k);else CK.set(k,o);if(S.tab==='application')refresh();}});
+
+/* ---------- console ---------- */
+const NC={};
+function callerSrc(){const st=(new Error().stack||'').split('\n').slice(1);for(const l of st){const m=l.match(/([^\s()]+):(\d+):\d+\)?\s*$/);if(!m)continue;let f=m[1];try{f=decodeURIComponent(f.split('/').pop());}catch(e){}if(/\.html$/.test(f)||/^<anonymous>/.test(f))continue;return f+':'+m[2];}return 'VM'+C.evalId+':1';}
+const ELREF=[];
+function elPrev(el){let a='';for(const x of el.attributes){if(x.name==='class')a+=` <span class="attr">class</span>=<span class="val">"${esc(x.value.replace(/\s*__f_\w+/g,''))}"</span>`;else a+=` <span class="attr">${esc(x.name)}</span>=<span class="val">"${esc(x.value.slice(0,40))}"</span>`;}ELREF.push(el);return `<span class="tag-link" data-act="selel" data-i="${ELREF.length-1}">&lt;<span class="tag">${el.localName}</span>${a}&gt;${el.children.length||el.textContent?'<span class="el-ell">…</span>':''}&lt;/<span class="tag">${el.localName}</span>&gt;</span>`;}
+function fv(v,top,d){d=d||0;if(v===null)return '<span class="vn">null</span>';if(v===undefined)return '<span class="vn">undefined</span>';const t=typeof v;
+ if(t==='string')return top?esc(v):'<span class="vs">"'+esc(v)+'"</span>';if(t==='number'||t==='boolean'||t==='bigint')return '<span class="vb">'+esc(String(v))+'</span>';if(t==='symbol')return esc(v.toString());
+ if(t==='function')return '<span class="vf">ƒ '+esc((v.name||'')+'()')+'</span>';if(v instanceof Element)return elPrev(v);if(v instanceof Error)return '<span class="ve">'+esc(v.stack||String(v))+'</span>';
+ if(d>2)return Array.isArray(v)?'Array('+v.length+')':'{…}';let keys,pre;const g=(o,k)=>{try{return o[k];}catch(e){return '(error)';}};
+ if(Array.isArray(v)){keys=Object.keys(v).concat(['length']);pre='('+v.length+') ['+v.slice(0,5).map(x=>fv(x,false,3)).join(', ')+(v.length>5?', …':'')+']';}
+ else{keys=Object.keys(v);const cn=v.constructor&&v.constructor.name&&v.constructor.name!=='Object'?v.constructor.name+' ':'';pre=cn+'{'+keys.slice(0,4).map(k=>esc(k)+': '+fv(g(v,k),false,3)).join(', ')+(keys.length>4?', …':'')+'}';}
+ return `<details class="obj"><summary>${pre}</summary>${keys.map(k=>`<div class="pr"><span class="vk">${esc(k)}</span>: ${fv(g(v,k),false,d+1)}</div>`).join('')}</details>`;}
+function fmtArgs(a){a=[...a];if(typeof a[0]==='string'&&/%[sdifoOc]/.test(a[0])){let i=1;const first=esc(a[0]).replace(/%([sdifoOc])/g,(m,c)=>{if(i>=a.length)return m;const x=a[i++];if(c==='c')return '';if(c==='d'||c==='i')return String(parseInt(x));if(c==='f')return String(parseFloat(x));if(c==='s')return esc(String(x));return fv(x,false);});a=[first,...a.slice(i)].map((x,j)=>j?fv(x,true):x);return a.join(' ');}return a.map(x=>fv(x,true)).join(' ');}
+function cadd(t,args,src,html){const h=html||fmtArgs(args);const last=C.lines[C.lines.length-1];if(last&&last.t===t&&last.h===h&&last.src===src&&last.d===C.gd&&t!=='in'&&t!=='out'){last.n++;}else C.lines.push({t,h,src,d:C.gd,n:1});if(t==='error')C.err++;if(t==='warn')C.warn++;if(S.tab==='console'||S.tab==='application')refresh();else if(t==='error')refreshTabs();}
+['log','info','warn','error','debug'].forEach(m=>{NC[m]=console[m];console[m]=function(...a){NC[m].apply(console,a);cadd(m,a,callerSrc());};});
+NC.table=console.table;console.table=function(d){NC.table.call(console,d);let rows=[],cols=[];const isA=Array.isArray(d);const keys=Object.keys(d||{});keys.forEach(k=>{const v=d[k];const o=(v&&typeof v==='object')?v:{'Value':v};rows.push([k,o]);Object.keys(o).forEach(c=>{if(!cols.includes(c))cols.push(c);});});
+ cadd('log',[],callerSrc(),`<table class="sim"><tr><th>(index)</th>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>${rows.map(([k,o])=>`<tr><td>${esc(k)}</td>${cols.map(c=>`<td>${c in o?fv(o[c],false,3):''}</td>`).join('')}</tr>`).join('')}</table>`);};
+NC.clear=console.clear;console.clear=function(){NC.clear.call(console);C.lines.length=0;C.err=C.warn=0;cadd('info',[],'',`<span class="vn">Console was cleared</span>`);};
+console.group=function(...a){cadd('log',a,callerSrc(),'<b>'+fmtArgs(a)+'</b>');C.gd++;};console.groupEnd=function(){C.gd=Math.max(0,C.gd-1);};
+on(window,'error',e=>{if(e.error||e.message){cadd('error',[],(e.filename?decodeURIComponent(e.filename.split('/').pop()):'')+':'+e.lineno,'Uncaught '+esc(e.error?e.error.name+': '+e.error.message:e.message));}});
+on(window,'unhandledrejection',e=>{cadd('error',[],'','Uncaught (in promise) '+fv(e.reason,true));});
+const lastRes={v:undefined};
+Object.defineProperties(window,{$0:{get:()=>E.sel,configurable:true},$_:{get:()=>lastRes.v,configurable:true}});
+window.$=s=>document.querySelector(s);window.$$=s=>[...document.querySelectorAll(s)];
+window.copy=v=>{const t=typeof v==='string'?v:JSON.stringify(v,null,2);try{navigator.clipboard.writeText(t);}catch(e){}return undefined;};
+window.clear=()=>console.clear();window.keys=Object.keys;window.values=Object.values;window.dir=v=>console.log(v);
+const MON=new Map();window.monitor=f=>{if(typeof f!=='function')throw new TypeError('monitor needs a function');const n=f.name||'anonymous';const w=function(...a){console.log(`function ${n}(${a.map(x=>JSON.stringify(x)).join(', ')}) called`);return f.apply(this,a);};MON.set(f,w);try{window[n]=w;}catch(e){}};window.unmonitor=f=>{const w=MON.get(f);MON.delete(f);try{window[f.name]=f;}catch(e){}};
+function evalExpr(code){C.evalId++;const id=C.evalId;cadd('in',[],'',esc(code));const t0=performance.now();let r,ok=true;
+ try{try{r=(0,eval)((/^\s*\{/.test(code)?'('+code+')':code)+'\n//# sourceURL=VM'+id);}catch(e){if(e instanceof SyntaxError&&/^\s*\{/.test(code))throw e;throw e;}}catch(e){ok=false;cadd('error',[],'VM'+id+':1','Uncaught '+esc(e.name+': '+e.message));}
+ if(ok){lastRes.v=r;cadd('out',[],'',fv(r,false));}perfTask('Evaluate script','Scripting',t0,performance.now()-t0,'(anonymous)');}
+const conLevel=l=>({debug:'verbose',log:'info',info:'info',warn:'warn',error:'error',in:'info',out:'info'}[l.t]);
+
+/* ---------- network ---------- */
+const ROUTES={'/api/data':{status:200,type:'application/json',body:JSON.stringify({items:[{id:1,name:'Áo thun'},{id:2,name:'Quần jean'}],total:2},null,2)},'/api/missing':{status:404,type:'application/json',body:'{"error":"Not found"}'}};
+const STT={200:'OK',404:'Not Found',500:'Internal Server Error'};
+function netAdd(o){if(!N.rec)return null;const e=Object.assign({id:++N.id,method:'GET',status:200,type:'fetch',initiator:'Other',size:0,start:now(),time:0,done:true,reqH:{},resH:{},body:'',payload:null,cache:'',failed:'',mime:''},o);e.name=(new URL(e.url).pathname.split('/').pop())||new URL(e.url).host;N.list.push(e);if(S.tab==='network')refresh();return e;}
+function netLoad(){const m=N.throttle===Infinity?0:N.throttle;const items=[['/','document','Other',200,'text/html',1230,118],['/app.js','script','(index)',200,'text/javascript',2140,46],['/logo.png','image','(index)',200,'image/png',18400,92],['/favicon.ico','other','Other',404,'text/html',310,64]];let t=4;
+ items.forEach(([p,ty,ini,st,mime,size,ms])=>{const url='https://example.com'+p;const cached=N.seen.has(url)&&!N.noCache&&st===200&&ty!=='document';N.seen.add(url);if(m===0){netAdd({url,type:ty,initiator:ini,status:'(failed)',failed:'net::ERR_INTERNET_DISCONNECTED',start:t,time:8});t+=10;return;}
+  const dur=Math.round(ms*m);netAdd({url,type:ty,initiator:ini,status:st,mime,size,start:t,time:cached?2:dur,cache:cached?'(disk cache)':'',resH:{'content-type':mime,'content-length':size,'server':'example'},body:ty==='script'?$('#appjs').textContent:ty==='document'?'<!DOCTYPE html>…':''});t+=Math.round(dur*0.35)+2;});}
+const realFetch=window.fetch;
+window.fetch=function(input,init){init=init||{};const u=new URL(typeof input==='string'?input:input.url,'https://example.com');const method=(init.method||'GET').toUpperCase();const ini=callerSrc();const mult=N.throttle;
+ return new Promise((res,rej)=>{const base=110+Math.random()*140;const dur=Math.round(base*(mult===Infinity?0.2:mult));const e=netAdd({url:u.href,method,type:'fetch',initiator:ini,status:'(pending)',done:false,reqH:{accept:'*/*','user-agent':navigator.userAgent.slice(0,60)+'…'},payload:init.body||null});
+  setTimeout(()=>{const r=ROUTES[u.pathname]||{status:404,type:'text/plain',body:'Not found'};
+   if(mult===Infinity){if(e){e.status='(failed)';e.failed='net::ERR_INTERNET_DISCONNECTED';e.done=true;e.time=dur;}cadd('error',[],ini,esc(`${method} ${u.href} net::ERR_INTERNET_DISCONNECTED`));perfTask('Fetch failed','System',performance.now(),1);rej(new TypeError('Failed to fetch'));if(S.tab==='network')refresh();return;}
+   if(e){e.status=r.status;e.done=true;e.time=dur;e.mime=r.type;e.body=r.body;e.size=r.body.length+260;e.resH={'content-type':r.type,'content-length':r.body.length,'cache-control':'no-cache'};}
+   if(r.status>=400)cadd('error',[],ini,esc(`${method} ${u.href} ${r.status} (${STT[r.status]})`));
+   perfTask('Fetch response','Scripting',performance.now(),1.5);res(new Response(r.body,{status:r.status,statusText:STT[r.status],headers:{'content-type':r.type}}));if(S.tab==='network')refresh();},dur);});};
+
+/* ---------- performance ---------- */
+const CAT={Scripting:'#fdd663',Rendering:'#c792ea',Painting:'#81c995',System:'#9aa0a6'};
+function perfTask(name,cat,start,dur,fn){if(!P.rec)return;const s=start-P.t0;P.tasks.push({name,cat,start:s,dur,fn:fn||''});let t=s+dur+.2;[['Recalculate style','Rendering',.3+Math.random()],['Layout','Rendering',.5+Math.random()*1.5],['Paint','Painting',.4+Math.random()]].forEach(([n,c,d])=>{P.tasks.push({name:n,cat:c,start:t,dur:d,fn:''});t+=d+.1;});}
+on(document,'click',e=>{if(!P.rec||dtwrap.contains(e.target))return;const t0=performance.now();const tg=e.target.id||e.target.localName;setTimeout(()=>{let d=performance.now()-t0;if(P.cpu>1){const end=performance.now()+d*(P.cpu-1);while(performance.now()<end);d*=P.cpu;}perfTask('Event: click','Scripting',t0,d,'#'+tg);},0);},true);
+function perfStart(){P={...P,rec:true,tasks:[],t0:performance.now(),done:false,sel:-1};P.timer=setInterval(()=>{if(S.tab==='performance')refresh();},200);refresh();}
+function perfStop(){if(!P.rec)return;clearInterval(P.timer);P.rec=false;P.t1=performance.now();P.done=true;refresh();}
+function perfReload(){if(P.rec)perfStop();P={...P,rec:true,tasks:[],t0:performance.now(),done:false,sel:-1};pageReload();const c=P.cpu;let t=0;[['Parse HTML','System',18,''],['Evaluate script','Scripting',44,'app.js'],['Recalculate style','Rendering',9,''],['Layout','Rendering',14,''],['Paint','Painting',8,''],['Composite layers','Painting',3,'']].forEach(([n,cat,d,fn])=>{d=d*c*(.9+Math.random()*.3);P.tasks.push({name:n,cat,start:t,dur:d,fn});t+=d+2;});setTimeout(()=>{P.t1=P.t0+Math.max(t+120,400);P.rec=false;P.done=true;if(S.tab==='performance')refresh();},400);refresh();}
+
+/* ---------- reload ---------- */
+function pageReload(){if(!N.preserve)N.list.length=0;if(!C.preserve){C.lines.length=0;C.err=C.warn=0;}page.innerHTML=PAGE_HTML;Object.keys(E.forced).forEach(k=>delete E.forced[k]);E.ov.clear();LOAD0=performance.now();try{window.leak.length=0;}catch(e){}netLoad();cadd('log',[60],'app.js:6');E.exp=new Set([HTML,BODY]);E.sel=q('#demo-text');if(SR.paused)dbgFinish(true);refresh();}
+q('#reload').onclick=pageReload;
+
+/* ---------- debugger ---------- */
+const TR_CALC=[{line:9,depth:1,stack:['calculate','(anonymous)'],local:{sum:undefined}},{line:2,depth:2,stack:['total','calculate','(anonymous)'],local:{items:[10,20,30]}},{line:3,depth:2,stack:['total','calculate','(anonymous)'],local:{items:[10,20,30]}},{line:10,depth:1,stack:['calculate','(anonymous)'],local:{sum:60}},{line:11,depth:1,stack:['calculate','(anonymous)'],local:{sum:60}}];
+function scopeVars(st){return Object.assign({cart:[10,20,30]},st.local);}
+function dbgHit(tr,from){for(let i=from;i<tr.length;i++){const b=SR.bps.find(b=>b.on&&b.file==='app.js'&&b.line===tr[i].line);if(!b)continue;if(b.cond){try{const v=scopeVars(tr[i]);if(!new Function(...Object.keys(v),'return ('+b.cond+')')(...Object.values(v)))continue;}catch(e){}}return i;}return -1;}
+function wrap(name,tr){const orig=window[name];window[name]=function(){const args=arguments,ctx=this;if(SR.paused||!SR.active)return orig.apply(ctx,args);const i=dbgHit(tr,0);if(i<0)return orig.apply(ctx,args);SR.paused={tr,idx:i,run:()=>orig.apply(ctx,args)};SR.file='app.js';SR.goto=tr[i].line;pagearea.classList.add('isPaused');q('#paused').style.display='block';S.tab='sources';openDT(true);refresh();};}
+function dbgStep(kind){const p=SR.paused;if(!p)return;const tr=p.tr,cur=tr[p.idx];let n=p.idx+1;
+ if(kind==='resume')n=dbgHit(tr,n);else if(kind==='over'){while(n<tr.length&&tr[n].depth>cur.depth)n++;}else if(kind==='out'){while(n<tr.length&&tr[n].depth>=cur.depth)n++;}
+ if(n<0||n>=tr.length)return dbgFinish();p.idx=n;SR.goto=tr[n].line;refresh();}
+function dbgFinish(skip){const p=SR.paused;SR.paused=null;pagearea.classList.remove('isPaused');q('#paused').style.display='none';if(p&&!skip)p.run();refresh();}
+on(q('#paused'),'click',e=>{if(e.target.dataset.pa)dbgStep('resume');});
+function evalScoped(expr){const st=SR.paused&&SR.paused.tr[SR.paused.idx];try{const v=st?scopeVars(st):{};return fv(new Function(...Object.keys(v),'return ('+expr+')')(...Object.values(v)),false);}catch(e){try{return fv((0,eval)(expr),false);}catch(e2){return '<span class="ve">&lt;not available&gt;</span>';}}}
+
+/* ---------- elements helpers ---------- */
+const VOID=new Set(['meta','br','img','input','link','hr']);
+const kidsOf=el=>el===HTML?[document.head,BODY]:el===BODY?[...page.children]:[...el.children];
+const selOf=el=>{if(!el)return '';if(el.id)return '#'+el.id;let s=el.localName;const c=[...el.classList].filter(x=>!x.startsWith('__'));if(c.length)s+='.'+c.join('.');return s;};
+let ELL=[];
+function attrsH(el){let a='';for(const x of el.attributes){let v=x.value;if(x.name==='class')v=v.replace(/\s*__f_[\w-]+/g,'').trim();if(x.name==='class'&&!v)continue;a+=` <span class="attr">${esc(x.name)}</span>=<span class="val">"${esc(v.length>60?v.slice(0,57)+'…':v)}"</span>`;}return a;}
+function walk(el,d){const tag=el.localName,open=`&lt;<span class="tag">${tag}</span>${attrsH(el)}&gt;`,close=`&lt;/<span class="tag">${tag}</span>&gt;`;const kids=kidsOf(el);const txt=(el!==HTML&&el!==BODY&&!kids.length)?el.textContent:'';
+ if(VOID.has(tag)){ELL.push({el,d,k:'inline',h:open});return;}
+ if(!kids.length&&txt.trim().length&&txt.length<=60&&el!==BODY){ELL.push({el,d,k:'inline',h:open+esc(txt)+close});return;}
+ if(!kids.length&&!txt.trim()&&el!==BODY){ELL.push({el,d,k:'inline',h:open+close});return;}
+ const ex=E.exp.has(el);if(!ex){ELL.push({el,d,k:'coll',h:open+'<span class="el-ell">…</span>'+close});return;}
+ ELL.push({el,d,k:'open',h:open});if(!kids.length&&txt.trim())ELL.push({el:null,d:d+1,k:'text',h:esc(txt.trim().slice(0,200))});else kids.forEach(c=>walk(c,d+1));ELL.push({el,d,k:'close',h:close});}
+function buildTree(){ELL=[{el:null,d:0,k:'raw',h:'<span style="color:var(--sub)">&lt;!DOCTYPE html&gt;</span>'}];E.exp.add(HTML);E.exp.add(BODY);walk(HTML,0);}
+function matchSel(el,sel){const f=E.forced;let alt=sel;let any=false;for(const p of Object.keys(f)){if(f[p]===el){alt=alt.replace(new RegExp(':'+p+'(?![\\w-])','g'),'.__f_'+p);any=true;}}try{if(el.matches(sel))return true;}catch(e){return false;}try{return any&&el.matches(alt);}catch(e){return false;}}
+function spec(s){const a=(s.match(/#[\w-]+/g)||[]).length,b=(s.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+(\([^)]*\))?/g)||[]).length,c=(s.replace(/#[\w-]+|\.[\w-]+|\[[^\]]+\]|::?[\w-]+(\([^)]*\))?/g,'').match(/[a-z][\w-]*/gi)||[]).length;return a*10000+b*100+c;}
+function mainSheet(){return [...document.styleSheets].find(s=>!s.ownerNode.dataset.dt);}
+function matchedRules(el){const out=[];const sh=mainSheet();[...sh.cssRules].forEach((r,i)=>{if(!r.selectorText)return;const sels=r.selectorText.split(',').map(x=>x.trim()).filter(x=>matchSel(el,x));if(sels.length)out.push({r,i,sp:Math.max(...sels.map(spec)),sel:r.selectorText});});out.sort((a,b)=>b.sp-a.sp||b.i-a.i);return out;}
+const UA={h1:[['display','block'],['font-size','2em'],['margin-block','0.67em'],['font-weight','bold']],p:[['display','block'],['margin-block','1em']],button:[['cursor','default'],['padding-block','1px'],['border-width','2px']],div:[['display','block']],body:[['display','block'],['margin','8px']],html:[['display','block']],b:[['font-weight','bold']],code:[['font-family','monospace']]};
+const INH=['color','font-family','font-size','font-style','font-weight','line-height','text-align','cursor','visibility','letter-spacing','white-space'];
+const DIS=new WeakMap(),RR=[];
+function propsH(style,rid){const names=[...style].map(p=>[p,style.getPropertyValue(p),style.getPropertyPriority(p),false]);const d=DIS.get(style);if(d)d.forEach((v,p)=>names.push([p,v,'',true]));const f=E.filter.toLowerCase();
+ return names.filter(([p,v])=>!f||p.includes(f)||String(v).toLowerCase().includes(f)).map(([p,v,pr,off])=>`<div class="st-prop ${off?'off':''}"><input type="checkbox" ${off?'':'checked'} data-act="proptoggle" data-r="${rid}" data-p="${esc(p)}"><span class="attr">${esc(p)}</span>:&nbsp;<span class="ed val" contenteditable="true" spellcheck="false" data-blur="propedit" data-r="${rid}" data-p="${esc(p)}">${esc(v)}${pr?' !important':''}</span>;</div>`).join('');}
+function ruleH(sel,style,src,ua,editable){const rid=RR.length;RR.push({style});return `<div class="st-rule ${ua?'st-ua':''}"><span class="st-src">${esc(src)}</span><span class="st-sel">${esc(sel)}</span> {${ua?style.map(([k,v])=>`<div class="st-prop"><span class="attr">${k}</span>:&nbsp;<span class="val">${v}</span>;</div>`).join(''):propsH(style,rid)+(editable?`<input class="st-new" placeholder="thêm thuộc tính: giá trị" data-key="newprop" data-r="${rid}">`:'')}}</div>`;}
+function stylesH(){const el=E.sel;RR.length=0;if(!el)return '<div class="st-msg">Chọn một phần tử.</div>';const SRC='Hướng dẫn t…ols.html:';const lines=q('style').textContent.split('\n');
+ const ln=sel=>{const i=lines.findIndex(l=>l.trim().startsWith(sel.split(',')[0].trim()+'{')||l.trim().startsWith(sel.trim()+'{')||l.trim().startsWith(sel.trim()+' {'));return i<0?'':String(i+6);};
+ let h=`<div class="st-filter"><input class="f" placeholder="Filter" value="${esc(E.filter)}" data-in="stfilter"><span class="st-btn ${E.hov?'on':''}" data-act="hov" title="Toggle element state (ép :hover, :focus, :active…)">:hov</span><span class="st-btn ${E.cls?'on':''}" data-act="cls" title="Thêm/bớt class">.cls</span><span class="st-btn" data-act="newrule" title="New style rule">+</span></div>`;
+ if(E.hov)h+=`<div class="st-force">${['active','focus','focus-within','hover','visited'].map(p=>`<label><input type="checkbox" ${E.forced[p]===el?'checked':''} data-act="force" data-p="${p}"> :${p}</label>`).join('')}</div>`;
+ if(E.cls)h+=`<div class="st-cls">${[...el.classList].filter(c=>!c.startsWith('__')).map(c=>`<label><input type="checkbox" checked data-act="clstoggle" data-c="${esc(c)}"> ${esc(c)}</label>`).join('')}<input class="f" placeholder="Add new class" data-key="addcls"></div>`;
+ h+=ruleH('element.style',el.style,'',false,true);
+ matchedRules(el).forEach(m=>{h+=ruleH(m.sel,m.r.style,SRC+ln(m.sel),false,true);});
+ h+=ruleH(el.localName,UA[el.localName]||[['display',el.localName==='span'?'inline':'block']],'user agent stylesheet',true);
+ [BODY,HTML].forEach(a=>{if(a===el)return;if(a===BODY&&el===HTML)return;let part='';matchedRules(a).forEach(m=>{const keep=[...m.r.style].filter(p=>INH.includes(p));if(keep.length)part+=`<div class="st-rule"><span class="st-src">${SRC+ln(m.sel)}</span>${esc(m.sel)} {${keep.map(p=>`<div class="st-prop"><span class="attr">${p}</span>:&nbsp;<span class="val">${esc(m.r.style.getPropertyValue(p))}</span>;</div>`).join('')}}</div>`;});if(part)h+=`<div class="st-inh">Inherited from <span class="tag">${a.localName}</span></div>`+part;});return h;}
+function computedH(){const el=E.sel;if(!el)return '';const cs=getComputedStyle(el),r=el.getBoundingClientRect(),g=p=>parseFloat(cs.getPropertyValue(p))||0;
+ const box=`<div class="bm"><div class="m"><i>margin</i>${g('margin-top')} · ${g('margin-right')} · ${g('margin-bottom')} · ${g('margin-left')}<div class="b"><i>border</i>${g('border-top-width')}<div class="p"><i>padding</i>${g('padding-top')} · ${g('padding-right')} · ${g('padding-bottom')} · ${g('padding-left')}<div class="c">${Math.round(r.width)} × ${Math.round(r.height)}</div></div></div></div></div>`;
+ const keys=E.showAll?[...cs].sort():['display','position','color','background-color','font-family','font-size','font-weight','line-height','margin-top','margin-bottom','padding-top','padding-bottom','width','height','border-top-width','text-align','cursor','visibility','opacity'];const f=E.filter.toLowerCase();
+ return `<div class="st-filter"><input class="f" placeholder="Filter" value="${esc(E.filter)}" data-in="stfilter"><label class="tcheck"><input type="checkbox" ${E.showAll?'checked':''} data-act="showall"> Show all</label></div>${box}<div class="st-msg"><table>${keys.filter(k=>!f||k.includes(f)).map(k=>`<tr><td class="attr">${k}</td><td>${esc(cs.getPropertyValue(k))}</td></tr>`).join('')}</table></div>`;}
+function lumi(c){const a=c.map(v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);});return .2126*a[0]+.7152*a[1]+.0722*a[2];}
+function rgbOf(s){const m=s.match(/[\d.]+/g)||[0,0,0,1];return[+m[0],+m[1],+m[2],m[3]===undefined?1:+m[3]];}
+function bgOf(el){while(el){const c=rgbOf(getComputedStyle(el).backgroundColor);if(c[3]>0)return c;el=el.parentElement;}return[255,255,255,1];}
+function contrast(el){const fg=rgbOf(getComputedStyle(el).color),bg=bgOf(el);const a=lumi(fg),b=lumi(bg);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05);}
+function layoutH(){const els=[...page.querySelectorAll('*')].concat([page]).filter(e=>/flex|grid/.test(getComputedStyle(e).display));return `<div class="st-msg"><b>Flexbox</b>${els.length?els.map(e=>`<div><label><input type="checkbox" ${E.ov.has(e)?'checked':''} data-act="ov" data-i="${(ELREF.push(e),ELREF.length-1)}"> ${esc(selOf(e))}</label></div>`).join(''):'<div>Không có phần tử flex/grid.</div>'}<br>Tick để bật overlay đường kẻ trên trang.</div>`;}
+function eventsH(){const el=E.sel;if(!el)return '';const items=[];for(const a of el.attributes)if(a.name.startsWith('on'))items.push([a.name.slice(2),'inline: '+a.value]);LREG.filter(x=>x.target===el).forEach(x=>items.push([x.type,'function '+(x.fn.name||'(anonymous)')+'()']));const anc=LREG.filter(x=>(x.target===document||x.target===window)&&!String(x.fn).includes('dt-')).map(x=>[x.type+' ('+(x.target===window?'window':'document')+')','function '+(x.fn.name||'(anonymous)')+'()']);
+ return `<div class="st-msg">${items.concat(anc).map(([t,d])=>`<div><b>${esc(t)}</b> — <code>${esc(d)}</code></div>`).join('')||'Không có event listener.'}</div>`;}
+function propsTabH(){const el=E.sel;if(!el)return '';const ks=['tagName','id','className','textContent','innerHTML','offsetWidth','offsetHeight','clientWidth','scrollHeight','childElementCount','isConnected'];return `<div class="st-msg"><table>${ks.map(k=>`<tr><td class="attr">${k}</td><td>${esc(String(el[k]).slice(0,80))}</td></tr>`).join('')}</table></div>`;}
+function a11yH(){const el=E.sel;if(!el)return '';const roles={h1:'heading',button:'button',p:'paragraph',a:'link',div:'generic',body:'generic'};const name=el.getAttribute('aria-label')||(el.localName==='p'?'':el.textContent.trim().slice(0,40));const c=contrast(el);const fs=parseFloat(getComputedStyle(el).fontSize),bold=+getComputedStyle(el).fontWeight>=700;const need=(fs>=24||(fs>=18.66&&bold))?3:4.5;
+ return `<div class="st-msg"><b>Computed Properties</b><table><tr><td>Name</td><td>${esc(name)||'<i>(none)</i>'}</td></tr><tr><td>Role</td><td>${roles[el.localName]||'generic'}</td></tr><tr><td>Focusable</td><td>${el.localName==='button'?'true':'false'}</td></tr></table><br><b>Contrast</b><br>Ratio: ${c.toFixed(2)} ${c>=need?'<span style="color:var(--accent2)">✓ AA</span>':'<span style="color:var(--warn)">✗ cần ≥ '+need+'</span>'}</div>`;}
+function elementsH(){buildTree();const cur=E.sel;const crumb=[];for(let x=cur;x&&x!==document;x=x===BODY?HTML:x===HTML?null:(x.parentElement===page?BODY:x.parentElement)){crumb.unshift(x);if(x===HTML)break;}
+ const subs=[['styles','Styles'],['computed','Computed'],['layout','Layout'],['events','Event Listeners'],['dombp','DOM Breakpoints'],['props','Properties'],['a11y','Accessibility']];
+ const side={styles:stylesH,computed:computedH,layout:layoutH,events:eventsH,dombp:()=>`<div class="st-msg"><label><input type="checkbox" data-act="dombp" data-t="subtree" ${E.bp.get(cur+'subtree')?'checked':''}> subtree modifications</label><br><label><input type="checkbox" data-act="dombp" data-t="attr" ${E.bp.get(cur+'attr')?'checked':''}> attribute modifications</label><br><label><input type="checkbox" data-act="dombp" data-t="removal" ${E.bp.get(cur+'removal')?'checked':''}> node removal</label><br>(khi xảy ra sẽ báo vào Console)</div>`,props:propsTabH,a11y:a11yH}[E.sub];
+ return `<div class="el-tree" tabindex="0" data-key="tree">${ELL.map((l,i)=>{const s=l.el&&E.sel===l.el&&(l.k==='open'||l.k==='coll'||l.k==='inline'||l.k==='raw');const ar=(l.k==='open')?'▾':(l.k==='coll')?'▸':'';return `<div class="el-line ${s?'selected':''}" style="padding-left:${8+l.d*14}px" ${l.el?`data-act="selnode" data-i="${i}" data-hov="${i}" data-ctx="node"`:''}><span class="el-arrow" ${ar?`data-act="toggle" data-i="${i}"`:''}>${ar}</span>${l.h}${s?' <span class="el-eq">== $0</span>':''}</div>`;}).join('')}</div>
+ ${E.editing?`<div class="editbox"><textarea id="editta">${esc(E.editing.outerHTML)}</textarea><button class="btn-blue" data-act="editok" style="margin:6px 4px 0 0">Apply</button><button class="btn-blue" data-act="editcancel" style="margin:6px 0 0;background:#3c4043;color:#e8eaed">Cancel</button></div>`:''}
+ <div class="el-crumb">${crumb.map((x,i)=>`<span class="${x===cur?'cur':''}" data-act="selel2" data-i="${(ELREF.push(x),ELREF.length-1)}">${esc(selOf(x)||x.localName)}</span>`).join('')}</div>
+ <div class="el-sub">${subs.map(([k,l])=>`<div class="${E.sub===k?'active':''}" data-act="sub" data-k="${k}">${l}</div>`).join('')}</div><div class="el-side">${side()}</div>`;}
+
+/* ---------- other panels ---------- */
+function consoleH(){const f=C.filter.toLowerCase();const lines=C.lines.filter(l=>{if(C.level!=='all'&&conLevel(l)!==C.level)return false;if(f&&!l.h.replace(/<[^>]+>/g,'').toLowerCase().includes(f))return false;return true;});
+ return `<div class="tb"><span class="ti" title="Show console sidebar">&#9776;</span><span class="ti" data-act="conclear" title="Clear console (Ctrl+L)">&#128683;</span><span class="tsep"></span><span class="ti" style="color:var(--text)">top &#9662;</span><span class="ti" title="Create live expression">&#128065;</span><input class="tfilter" placeholder="Filter" value="${esc(C.filter)}" data-in="confilter"><select class="tsel" data-ch="conlevel">${[['all','Default levels'],['verbose','Verbose'],['info','Info'],['warn','Warnings'],['error','Errors']].map(([v,l])=>`<option value="${v}" ${C.level===v?'selected':''}>${l}</option>`).join('')}</select><span class="grow"></span>${C.err?`<span class="ti" style="color:#ff8080">&#10006; ${C.err}</span>`:''}${C.warn?`<span class="ti" style="color:#f4bd00">&#9888; ${C.warn}</span>`:''}<span class="ti ${C.settings?'on':''}" data-act="consettings" title="Console settings">&#9881;</span></div>
+ ${C.settings?`<div class="con-settings"><label class="tcheck"><input type="checkbox" ${C.preserve?'checked':''} data-act="conpreserve"> Preserve log</label><label class="tcheck"><input type="checkbox"> Hide network</label><label class="tcheck"><input type="checkbox" checked> Group similar</label></div>`:''}
+ <div class="pane-body" data-scroll="con">${lines.map(l=>`<div class="cl ${l.t==='out'?'':l.t}" style="padding-left:${6+l.d*14}px"><span class="cl-ico">${{in:'&#8250;',out:'&lsaquo;',warn:'&#9888;',error:'&#10006;'}[l.t]||''}</span><span class="cl-msg">${l.h}</span>${l.n>1?`<span class="cl-cnt">${l.n}</span>`:''}${l.src?`<span class="cl-src" data-act="gosrc" data-s="${esc(l.src)}">${esc(l.src)}</span>`:''}</div>`).join('')}</div>
+ <div class="console-input"><span>&#8250;</span><input id="cin" data-key="coninput" autocomplete="off"></div>`;}
+const FILES=()=>({'index.html':'<!DOCTYPE html>\n<html lang="vi">\n<head>\n  <meta charset="UTF-8">\n  <title>Trang demo</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n'+PAGE_HTML+'\n<script src="app.js"><\/script>\n</body>\n</html>','app.js':q('#appjs').textContent});
+function hiliteJS(t){let h=esc(t);h=h.replace(/(\/\/.*$)/,'<span class="cm">$1</span>').replace(/\b(function|return|const|let|var|new|if|else)\b/g,'<span class="k">$1</span>').replace(/('[^']*')/g,'<span class="st">$1</span>');return h;}
+function sourcesH(){const files=FILES(),code=files[SR.file].split('\n'),p=SR.paused,cur=p?p.tr[p.idx]:null;
+ const edit=code.map((t,i)=>{const n=i+1,b=SR.bps.find(b=>b.file===SR.file&&b.line===n);return `<div class="ed-line ${cur&&SR.file==='app.js'&&cur.line===n?'cur':''}" data-ctx="gutter" data-ln="${n}" id="ln${n}"><span class="ed-ln ${b?'bp '+(b.cond?'cond ':'')+(b.on?'':'off'):''}" data-act="bptoggle" data-ln="${n}">${n}</span><span>${SR.file==='app.js'?hiliteJS(t):esc(t)}</span></div>`;}).join('');
+ const vars=cur?scopeVars(cur):null;
+ return `<div class="split"><div class="nav" style="flex-basis:120px"><div class="nav-tabs"><div class="${SR.nav==='page'?'active':''}" data-act="srcnav" data-k="page">Page</div><div class="${SR.nav==='ov'?'active':''}" data-act="srcnav" data-k="ov">Overrides</div></div>
+ ${SR.nav==='page'?`<div class="nav-i" style="color:var(--sub)">&#9662; top</div><div class="nav-i" style="padding-left:16px;color:var(--sub)">&#9662; example.com</div>${Object.keys(files).map(f=>`<div class="nav-i ${SR.file===f?'active':''}" style="padding-left:30px" data-act="srcfile" data-f="${f}">${f}</div>`).join('')}`:`<div class="empty" style="padding:12px">Select folder for overrides<br><button class="btn-blue" style="margin:8px 0" data-act="ovpick">+ Select folder</button>${SR.ov?'<br>Đã bật Local Overrides (mô phỏng): sửa file sẽ được lưu cục bộ.':''}</div>`}</div>
+ <div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="nav-tabs"><div class="active">${SR.file} &#10005;</div></div><div class="editor" data-scroll="ed">${edit}</div>
+ ${SR.condLine?`<div class="tb" style="background:#3b3b1d">Line ${SR.condLine}: dừng nếu biểu thức đúng <input class="tfilter" style="width:220px" id="condin" data-key="condin" placeholder="vd: sum > 50" autofocus></div>`:''}
+ <div class="ed-status">{ }&nbsp; ${cur?`Paused on line ${cur.line}`:'Line 1, Column 1'}</div></div></div>
+ <div class="dbg"><div class="tb"><span class="ti ${p?'':'dis'}" data-act="dbg" data-k="resume" title="Resume (F8)">&#9205;</span><span class="ti ${p?'':'dis'}" data-act="dbg" data-k="over" title="Step over (F10)">&#10551;</span><span class="ti ${p?'':'dis'}" data-act="dbg" data-k="into" title="Step into (F11)">&#8595;</span><span class="ti ${p?'':'dis'}" data-act="dbg" data-k="out" title="Step out (Shift+F11)">&#8593;</span><span class="ti ${SR.active?'':'on'}" data-act="dbgactive" title="Deactivate breakpoints">&#10039;</span></div>
+ ${p?'<div class="pausebanner">Paused on breakpoint</div>':''}
+ <details open><summary>Watch <span class="ti" data-act="addwatch" title="Add watch expression">+</span></summary><div class="dbody">${SR.addWatch?'<input class="tfilter" id="watchin" data-key="watchin" placeholder="expression">':''}${SR.watch.map((w,i)=>`<div>${esc(w)}: ${evalScoped(w)} <span class="ti" data-act="delwatch" data-i="${i}">&#10005;</span></div>`).join('')||(SR.addWatch?'':'No watch expressions')}</div></details>
+ <details open><summary>Breakpoints</summary><div class="dbody">${SR.bps.map((b,i)=>`<div><label><input type="checkbox" ${b.on?'checked':''} data-act="bpon" data-i="${i}"> ${b.file}:${b.line}${b.cond?' (if '+esc(b.cond)+')':''}</label> <span class="ti" data-act="bpdel" data-i="${i}">&#10005;</span></div>`).join('')||'No breakpoints'}</div></details>
+ <details ${p?'open':''}><summary>Scope</summary><div class="dbody">${p?`<div><b>Local</b></div>${Object.entries(cur.local).map(([k,v])=>`<div>${esc(k)}: ${fv(v,false)}</div>`).join('')}<div><b>Script</b></div><div>cart: ${fv(vars.cart,false)}</div><div><b>Global</b></div><div>Window</div>`:'Not paused'}</div></details>
+ <details ${p?'open':''}><summary>Call Stack</summary><div class="dbody">${p?cur.stack.map((s,i)=>`<div>${esc(s)} <span style="color:var(--sub)">app.js:${i?'—':cur.line}</span></div>`).join(''):'Not paused'}</div></details>
+ <details><summary>XHR/fetch Breakpoints</summary></details><details><summary>Event Listener Breakpoints</summary></details></div>`;}
+const NCATS=['All','Fetch/XHR','JS','CSS','Img','Media','Font','Doc','WS','Wasm','Other'];
+const netCat=e=>({fetch:'Fetch/XHR',xhr:'Fetch/XHR',script:'JS',stylesheet:'CSS',image:'Img',document:'Doc',font:'Font'}[e.type]||'Other');
+function networkH(){const f=N.filter.toLowerCase();const list=N.list.filter(e=>(N.type==='All'||netCat(e)===N.type)&&(!f||e.url.toLowerCase().includes(f)));const total=Math.max(1,...N.list.map(e=>e.start+e.time));const sel=N.list.find(e=>e.id===N.sel);
+ const det=sel?`<div class="net-detail"><div class="nav-tabs"><div data-act="netclose" style="color:var(--text)">&#10005;</div>${['headers','payload','preview','response','timing'].map(k=>`<div class="${N.sub===k?'active':''}" data-act="netsub" data-k="${k}">${k[0].toUpperCase()+k.slice(1)}</div>`).join('')}</div><div class="pane-body">${netDetail(sel)}</div></div>`:'';
+ return `<div class="tb"><span class="ti rec ${N.rec?'on':''}" data-act="netrec" title="Record network log">&#9210;</span><span class="ti" data-act="netclear" title="Clear">&#128683;</span><span class="tsep"></span><label class="tcheck"><input type="checkbox" ${N.preserve?'checked':''} data-act="netpreserve"> Preserve log</label><label class="tcheck"><input type="checkbox" ${N.noCache?'checked':''} data-act="netcache"> Disable cache</label><select class="tsel" data-ch="throttle">${[['1','No throttling'],['4','Fast 3G'],['10','Slow 3G'],['off','Offline']].map(([v,l])=>`<option value="${v}" ${String(N.throttle===Infinity?'off':N.throttle)===v?'selected':''}>${l}</option>`).join('')}</select><span class="grow"></span><span class="ti" data-act="nethar" title="Export HAR...">&#11015;</span></div>
+ <div class="pills"><input class="tfilter" placeholder="Filter" value="${esc(N.filter)}" data-in="netfilter" style="margin-right:6px">${NCATS.map(n=>`<span class="pill ${N.type===n?'active':''}" data-act="nettype" data-k="${n}">${n}</span>`).join('')}</div>
+ <div class="pane-body" data-scroll="net"><table class="net"><tr><th>Name</th><th>Status</th><th>Type</th><th>Initiator</th><th>Size</th><th>Time</th><th style="width:110px">Waterfall</th></tr>${list.map(e=>`<tr class="r ${(e.status>=400||e.failed)?'err':''} ${N.sel===e.id?'sel':''}" data-act="netsel" data-id="${e.id}" title="${esc(e.url)}"><td>${esc(e.name)}</td><td>${e.failed?'(failed)':e.status}</td><td>${esc(e.type)}</td><td>${esc(e.initiator)}</td><td>${e.cache||fmtB(e.size)}</td><td>${e.done?Math.round(e.time)+' ms':'Pending'}</td><td><div class="wf" style="margin-left:${(e.start/total*100).toFixed(1)}%;width:${Math.max(1,(e.time||20)/total*100).toFixed(1)}%;${(e.status>=400||e.failed)?'background:#f28b82':''}"></div></td></tr>`).join('')}</table>${!list.length?'<div class="empty">Recording network activity…<br>Bấm một nút “Gọi API” trong trang, hoặc tải lại trang (⟳) để thấy request.</div>':''}</div>${det}
+ <div class="net-sum">${list.length} / ${N.list.length} requests &nbsp;|&nbsp; ${fmtB(list.reduce((a,e)=>a+(e.cache?0:e.size),0))} transferred &nbsp;|&nbsp; Finish: ${Math.round(total)} ms</div>`;}
+function netDetail(e){const kv=o=>Object.entries(o).map(([k,v])=>`<div class="kv"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join('');
+ if(N.sub==='headers')return `<div class="kvh">General</div>${kv({'Request URL':e.url,'Request Method':e.method,'Status Code':e.failed||e.status+' '+(STT[e.status]||'')})}<div class="kvh">Response Headers</div>${kv(e.resH)}<div class="kvh">Request Headers</div>${kv(e.reqH)}`;
+ if(N.sub==='payload')return e.payload?`<pre>${esc(e.payload)}</pre>`:'<div class="empty">This request has no payload data.</div>';
+ if(N.sub==='preview'||N.sub==='response'){let b=e.body||'';if(N.sub==='preview'){try{b=JSON.stringify(JSON.parse(b),null,2);}catch(x){}}return b?`<pre>${esc(b)}</pre>`:'<div class="empty">No response body.</div>';}
+ const t=e.time;return `<div class="kvh">Resource Scheduling</div>${kv({'Queued at':Math.round(e.start)+' ms','Started at':Math.round(e.start+1)+' ms'})}<div class="kvh">Request/Response</div>${kv({'Request sent':'0.3 ms','Waiting for server response (TTFB)':Math.round(t*.8)+' ms','Content Download':Math.round(t*.2)+' ms','Total':Math.round(t)+' ms'})}`;}
+function perfH(){const tb=`<div class="tb"><span class="ti rec ${P.rec?'on':''}" data-act="perfrec" title="Record (Ctrl+E)">&#9210;</span><span class="ti" data-act="perfreload" title="Start profiling and reload page (Ctrl+Shift+E)">&#10227;</span><span class="ti" data-act="perfclear" title="Clear">&#128683;</span><span class="tsep"></span><label class="tcheck"><input type="checkbox"> Screenshots</label><label class="tcheck"><input type="checkbox"> Web Vitals</label><span class="grow"></span><select class="tsel" data-ch="cpu"><option value="1" ${P.cpu===1?'selected':''}>No throttling</option><option value="4" ${P.cpu===4?'selected':''}>4× slowdown</option><option value="6" ${P.cpu===6?'selected':''}>6× slowdown</option></select></div>`;
+ if(P.rec&&!P.done)return tb+`<div class="empty"><b>Recording… ${((performance.now()-P.t0)/1000).toFixed(1)}s</b>${P.tasks.filter(t=>t.name==='Event: click'||t.name==='Evaluate script').length} sự kiện đã ghi. Thao tác trên trang rồi bấm Record lần nữa để dừng.</div>`;
+ if(!P.done)return tb+`<div class="empty"><b>Performance</b>Bấm Record &#9210; để ghi, thao tác trên trang (click nút, gọi API…), rồi bấm lại để dừng.<br>Hoặc bấm Reload &#10227; để ghi quá trình tải trang.</div>`;
+ const total=Math.max(1,P.t1-P.t0),tasks=P.tasks;if(!tasks.length)return tb+`<div class="empty">Không có hoạt động nào được ghi. Hãy click các nút trong trang khi đang Record.</div>`;
+ const buckets=60;const cpu=Array.from({length:buckets},()=>({}));tasks.forEach(t=>{const b=Math.min(buckets-1,Math.floor(t.start/total*buckets));cpu[b][t.cat]=(cpu[b][t.cat]||0)+t.dur;});
+ const cpuH=cpu.map(b=>{const k=Object.keys(b).sort((x,y)=>b[y]-b[x])[0];return `<i style="height:${k?Math.min(100,10+b[k]/(total/buckets)*90):0}%;background:${CAT[k]||'transparent'}"></i>`;}).join('');
+ const netH=Array.from({length:buckets},(_,i)=>{const t0=P.t0+i/buckets*total,t1=P.t0+(i+1)/buckets*total;const hit=N.list.some(e=>{const s=LOAD0+e.start;return s<t1&&s+e.time>t0;});return `<i style="height:${hit?60:0}%;background:#8ab4f8"></i>`;}).join('');
+ const fps=Array.from({length:buckets},(_,i)=>`<i style="height:${cpu[i].Scripting?30:70}%;background:${cpu[i].Scripting?'#f28b82':'#81c995'}"></i>`).join('');
+ const sel=tasks[P.sel];const sums={};tasks.forEach(t=>sums[t.cat]=(sums[t.cat]||0)+t.dur);const busy=Object.values(sums).reduce((a,b)=>a+b,0);sums.Idle=Math.max(0,total-busy);
+ const rows=(t)=>[['Task',t.dur>50?'long':'', '#9aa0a6',0],[t.name,'',CAT[t.cat],1]].concat(t.fn?[[t.fn,'',CAT[t.cat],2]]:[]);
+ const fl=tasks.map((t,i)=>rows(t).map(([n,l,c,r])=>`<i class="${l} ${P.sel===i?'sel':''}" style="left:${(t.start/total*100).toFixed(2)}%;width:${Math.max(.6,t.dur/total*100).toFixed(2)}%;top:${r*17}px;background:${r===0&&l?'#f28b82':c}" data-act="perfsel" data-i="${i}" title="${esc(n)} ${t.dur.toFixed(1)} ms">${r===0&&!l?'':esc(n)}</i>`).join('')).join('');
+ let det='';const st=P.sub;
+ if(st==='summary')det=`<div class="catbar">${Object.entries(sums).filter(([k,v])=>v>0).map(([k,v])=>`<div style="width:${v/total*100}%;background:${CAT[k]||'#3c4043'}" title="${k}"></div>`).join('')}</div><div class="st-msg legend">${Object.entries(sums).map(([k,v])=>`<div><span style="background:${CAT[k]||'#3c4043'}"></span>${k}: ${v.toFixed(1)} ms</div>`).join('')}Range: ${total.toFixed(0)} ms ${sel?`<hr><b>${esc(sel.name)}</b> — ${sel.dur.toFixed(1)} ms @ ${sel.start.toFixed(1)} ms ${sel.dur>50?'<span style="color:var(--warn)">⚠ Long task</span>':''}`:''}</div>`;
+ if(st==='bottom'){const g={};tasks.forEach(t=>g[t.name]=(g[t.name]||0)+t.dur);det=`<table class="net"><tr><th>Self Time</th><th>Activity</th></tr>${Object.entries(g).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr class="r"><td>${v.toFixed(1)} ms</td><td>${esc(k)}</td></tr>`).join('')}</table>`;}
+ if(st==='tree')det=`<table class="net"><tr><th>Total Time</th><th>Activity</th></tr>${tasks.map(t=>`<tr class="r"><td>${t.dur.toFixed(1)} ms</td><td>▸ ${esc(t.name)}${t.fn?' › '+esc(t.fn):''}</td></tr>`).join('')}</table>`;
+ if(st==='log')det=`<table class="net"><tr><th>Start Time</th><th>Self Time</th><th>Activity</th></tr>${tasks.map(t=>`<tr class="r"><td>${t.start.toFixed(1)} ms</td><td>${t.dur.toFixed(1)} ms</td><td>${esc(t.name)}</td></tr>`).join('')}</table>`;
+ return tb+`<div class="pane-body"><div class="lane"><b>FPS</b>${fps}</div><div class="lane"><b>CPU</b>${cpuH}</div><div class="lane"><b>NET</b>${netH}</div><div class="ruler"><span>0</span><span>${(total/2).toFixed(0)} ms</span><span>${total.toFixed(0)} ms</span></div><div class="flame">${fl}</div><div class="perf-tabs">${[['summary','Summary'],['bottom','Bottom-Up'],['tree','Call Tree'],['log','Event Log']].map(([k,l])=>`<div class="${st===k?'active':''}" data-act="perfsub" data-k="${k}">${l}</div>`).join('')}</div>${det}</div>`;}
+function heapNow(){try{if(performance.memory)return performance.memory.usedJSHeapSize;}catch(e){}return 2.6e6+((window.leak&&window.leak.length)||0)*0.8e6;}
+function memH(){const nav=`<div class="nav" style="flex-basis:150px"><div class="nav-h">PROFILES</div>${M.snaps.map((s,i)=>`<div class="nav-i ${M.view===i?'active':''}" data-act="memview" data-i="${i}">Snapshot ${i+1} <span style="color:var(--sub)">${(s.size/1e6).toFixed(1)} MB</span></div>`).join('')||'<div class="nav-i" style="color:var(--sub)">(none)</div>'}${M.samples.length&&!M.run?'<div class="nav-i" data-act="memview" data-i="-2">Timeline 1</div>':''}</div>`;
+ let main;if(M.view>=0){const s=M.snaps[M.view],prev=M.snaps[M.view-1];main=`<div class="st-msg"><b>Summary</b> — ${(s.size/1e6).toFixed(2)} MB${prev?` (<span style="color:${s.size>prev.size?'var(--warn)':'var(--accent2)'}">${s.size>prev.size?'+':''}${((s.size-prev.size)/1e6).toFixed(2)} MB so với Snapshot ${M.view}</span>)`:''}<table><tr><td><b>Constructor</b></td><td><b>Objects</b></td><td><b>Shallow Size</b></td></tr>${s.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${r[1]}</td><td>${fmtB(r[2])}</td></tr>`).join('')}</table></div>`;}
+ else if(M.view===-2||M.run){const mx=Math.max(...M.samples);main=`<div class="bars">${M.samples.map(v=>`<i style="height:${v/mx*100}%"></i>`).join('')}</div><div class="st-msg">Allocation timeline — heap ${(M.samples[M.samples.length-1]/1e6).toFixed(2)} MB. Bấm “Tạo memory leak” khi đang ghi để thấy cột xanh tăng.</div><button class="btn-blue" data-act="memrun">${M.run?'Stop':'Start'}</button>`;}
+ else main=`<div style="padding:8px 10px;font-weight:bold">Select profiling type</div><div class="mem-opt" data-act="memtype" data-k="heap"><input type="radio" ${M.type==='heap'?'checked':''}><div><b>Heap snapshot</b><small>Heap snapshot profiles show memory distribution among your page's JavaScript objects and related DOM nodes.</small></div></div><div class="mem-opt" data-act="memtype" data-k="alloc"><input type="radio" ${M.type==='alloc'?'checked':''}><div><b>Allocation instrumentation on timeline</b><small>Record allocation stacks of JavaScript objects over time.</small></div></div><div class="mem-opt"><input type="radio" disabled><div><b>Allocation sampling</b><small>Record memory allocations using a sampling method.</small></div></div>
+  <button class="btn-blue" data-act="${M.type==='heap'?'memsnap':'memrun'}">${M.type==='heap'?'Take snapshot':M.run?'Stop':'Start'}</button>${M.run?'<div class="st-msg">Đang ghi… bấm Stop để dừng.</div>':''}`;
+ return `<div class="split">${nav}<div class="pane-body">${main}</div></div>`;}
+function memSnap(){const tags={};document.querySelectorAll('*').forEach(e=>{const n=e.constructor.name;tags[n]=(tags[n]||0)+1;});const lk=(window.leak&&window.leak.length)||0;const rows=Object.entries(tags).map(([k,v])=>[k,v,v*56]).sort((a,b)=>b[2]-a[2]).slice(0,8);rows.unshift(['Array',12+lk,lk*8e5+960],['(string)',420,31000],['(closure)',180,14400]);rows.sort((a,b)=>b[2]-a[2]);M.snaps.push({size:heapNow(),rows});M.view=M.snaps.length-1;refresh();}
+const LS_DOC={ls:['Local storage','On this page you can view, add, edit, and delete local storage key-value pairs.'],ss:['Session storage','On this page you can view, add, edit, and delete session storage key-value pairs.'],idb:['IndexedDB','On this page you can view and delete IndexedDB databases.'],cookie:['Cookies','On this page you can view, add, edit, and delete cookies.'],
+ manifest:['App Manifest','Chưa có web app manifest. Thêm <link rel="manifest"> để biến trang thành PWA.'],sw:['Service workers','Không có service worker nào cho origin này.'],storage:['Storage','Dung lượng dùng: ~12 kB trong 300 GB quota.'],ext:['Extension storage','Không có extension storage.'],pst:['Private state tokens','Trang này chưa dùng Private State Tokens.'],cache:['Cache storage','Không có Cache Storage.'],bucket:['Storage buckets','Không có storage bucket.'],bf:['Back/forward cache','Kiểm tra trang có đủ điều kiện bfcache khi điều hướng qua lại. Bấm “Test back/forward cache”.'],bfetch:['Background fetch','Ghi lại sự kiện background fetch của service worker.'],bsync:['Background sync','Ghi lại sự kiện background sync.'],bounce:['Bounce tracking mitigations','Chống theo dõi qua bounce tracking.'],notif:['Notifications','Ghi lại sự kiện thông báo.'],pay:['Payment handler','Ghi lại sự kiện Payment Handler.'],pbs:['Periodic background sync','Ghi lại sự kiện periodic sync.'],spec:['Speculative loads','Xem trạng thái prefetch/prerender (Speculation Rules).'],push:['Push messaging','Ghi lại sự kiện push.'],rep:['Reporting API','Xem các báo cáo CSP/deprecation gửi tới endpoint.'],dbs:['Device bound sessions','Danh sách phiên gắn thiết bị.'],frame:['top','Frame chính: https://example.com — Secure Context: Yes — Cross-origin isolated: No']};
+const SIDE=[['h','Application'],['manifest','Manifest'],['sw','Service workers'],['storage','Storage'],['h','Storage'],['ls','Local storage','▦',1],['ss','Session storage','▦',1],['ext','Extension storage','▦'],['idb','IndexedDB','⛁',1],['cookie','Cookies','◔',1],['pst','Private state tokens','⛁'],['cache','Cache storage','⛁',1],['bucket','Storage buckets','⛉'],['h','Background services'],['bf','Back/forward cache','⛁'],['bfetch','Background fetch','⇅'],['bsync','Background sync','⟲'],['bounce','Bounce tracking mitigations','⛁'],['notif','Notifications','🔔'],['pay','Payment handler','▭'],['pbs','Periodic background sync','◷'],['spec','Speculative loads','⇥',1],['push','Push messaging','☁'],['rep','Reporting API','▯',1],['dbs','Device bound sessions','▯',1],['h','Frames'],['frame','top','▭',1]];
+function tableEditable(map,kind){const rows=[...map.entries()];return `<table class="net"><tr><th>Key</th><th>Value</th></tr>${rows.map(([k,v])=>`<tr class="r ${A.selKey===k?'sel':''}" data-act="approw" data-k="${esc(k)}"><td contenteditable="true" spellcheck="false" data-blur="appkey" data-old="${esc(k)}" data-kind="${kind}">${esc(k)}</td><td contenteditable="true" spellcheck="false" data-blur="appval" data-key="${esc(k)}" data-kind="${kind}">${esc(v)}</td></tr>`).join('')}<tr class="r"><td contenteditable="true" spellcheck="false" data-blur="appnew" data-kind="${kind}" style="color:var(--sub)"></td><td style="color:var(--sub)">(bấm vào ô trống để thêm key)</td></tr></table>`;}
+function appH(){const sel=A.sel,[base,sub]=sel.split(':');const ADD=(k)=>`<div class="nav-i ${A.sel===k?'active':''}" style="padding-left:40px" data-act="appsel" data-k="${k}"><span class="ic">▦</span>${k.endsWith('o')?'https://example.com':'example-db'}</div>`;
+ const nav=SIDE.map(([k,l,ic,ex])=>{if(k==='h')return `<div class="nav-h">${l}</div>`;const open=A.exp.has(k);return `<div class="nav-i ${A.sel===k?'active':''}" style="padding-left:${ic?'14px':'22px'}" data-act="appsel" data-k="${k}">${ex?`<span class="ar" data-act="apptog" data-k="${k}">${open?'▾':'▸'}</span>`:'<span class="ar"></span>'}${ic?`<span class="ic">${ic}</span>`:''}${l}</div>${ex&&open&&['ls','ss','cookie','idb'].includes(k)?ADD(k+':o'):''}`;}).join('');
+ let main;const bar=`<div class="tb"><span class="ti" data-act="apprefresh" title="Refresh">&#10227;</span><span class="ti">&#9661;</span><input class="tfilter" placeholder="Filter"><span class="ti" data-act="appclear" title="Clear all">&#128683;</span><span class="ti" data-act="appdel" title="Delete selected">&#10005;</span></div>`;
+ if(sub==='o'){if(base==='ls')main=bar+`<div class="pane-body">${tableEditable(LS.__map,'ls')}</div>`;else if(base==='ss')main=bar+`<div class="pane-body">${tableEditable(SS.__map,'ss')}</div>`;
+  else if(base==='cookie')main=bar+`<div class="pane-body"><table class="net"><tr><th>Name</th><th>Value</th><th>Domain</th><th>Path</th><th>Expires</th><th>HttpOnly</th><th>Secure</th><th>SameSite</th></tr>${[...CK].map(([k,v])=>`<tr class="r ${A.selKey===k?'sel':''}" data-act="approw" data-k="${esc(k)}"><td>${esc(k)}</td><td>${esc(v.value)}</td><td>${v.domain}</td><td>${v.path}</td><td>${v.expires.slice(0,10)}</td><td>${v.httpOnly?'✓':''}</td><td>${v.secure?'✓':''}</td><td>${v.sameSite}</td></tr>`).join('')}</table></div>`;
+  else main=bar+`<div class="empty" style="text-align:left"><b>example-db</b>▸ Object stores: items, settings<br>items: [{id:1,name:"Áo thun"},{id:2,name:"Quần jean"}]</div>`;}
+ else{const d=LS_DOC[base]||['',''];main=`<div class="empty"><b>${d[0]}</b>${d[1]} <a>Learn more</a>${base==='bf'?'<br><button class="btn-blue" data-act="bftest">Test back/forward cache</button>':''}${base==='storage'?'<br><button class="btn-blue" data-act="clearsite">Clear site data</button>':''}${base==='sw'?'<br><label class="tcheck" style="justify-content:center"><input type="checkbox"> Offline</label><label class="tcheck" style="justify-content:center"><input type="checkbox"> Update on reload</label><label class="tcheck" style="justify-content:center"><input type="checkbox"> Bypass for network</label>':''}</div>`;}
+ const lh=helpHtml('appsel:'+sel);if(lh)main+=`<div class="learn">${lh}</div>`;
+ return `<div class="split"><div class="nav" style="flex-basis:215px">${nav}</div><div style="flex:1;display:flex;flex-direction:column;min-width:0">${main}</div></div>`;}
+function secH(){return `<div class="split"><div class="nav" style="flex-basis:120px"><div class="nav-i active">Overview</div><div class="nav-h">MAIN ORIGIN</div><div class="nav-i">&#128274; example.com</div></div><div class="pane-body sec-box"><div class="sec-ico">&#128274;</div><b style="font-size:15px">This page is secure (valid HTTPS).</b><h4>Certificate - valid and trusted</h4><div style="color:var(--sub)">Kết nối được xác thực bởi một CA tin cậy.</div><button class="btn-blue" style="margin:8px 0" data-act="seccert">View certificate</button>${SEC.cert?'<div class="st-msg">Issuer: Example CA · Hạn: 2027-03-01 · SHA-256: 9F:2C:…</div>':''}<h4>Connection - secure connection settings</h4><div style="color:var(--sub)">TLS 1.3, X25519, AES_128_GCM.</div><h4>Resources - all served securely</h4><div style="color:var(--sub)">Mọi tài nguyên đều tải qua HTTPS (không có mixed content).</div></div></div>`;}
+function lhRun(){L.st='running';L.p=0;refresh();const tk=setInterval(()=>{L.p+=12;if(L.p>=100){clearInterval(tk);L.st='done';L.res=lhAudit();}if(S.tab==='lighthouse')refresh();},350);}
+function lhAudit(){const a11y=[],seo=[],bp=[];const textEls=[...page.querySelectorAll('h1,p,button,code,b')];const low=textEls.filter(e=>{const fs=parseFloat(getComputedStyle(e).fontSize);return contrast(e)<(fs>=24?3:4.5);});
+ a11y.push({ok:!low.length,t:'Background and foreground colors have a sufficient contrast ratio',items:low});a11y.push({ok:!!document.documentElement.lang,t:'<html> element has a [lang] attribute'});a11y.push({ok:[...page.querySelectorAll('button')].every(b=>b.textContent.trim()),t:'Buttons have an accessible name'});a11y.push({ok:[...page.querySelectorAll('img')].every(i=>i.alt),t:'Image elements have [alt] attributes'});
+ seo.push({ok:!!document.title,t:'Document has a <title> element'});seo.push({ok:!!document.querySelector('meta[name=description]'),t:'Document has a meta description'});seo.push({ok:!!document.querySelector('meta[name=viewport]'),t:'Has a <meta name="viewport"> tag'});
+ bp.push({ok:true,t:'Uses HTTPS'});bp.push({ok:!C.err,t:'No browser errors logged to the console ('+C.err+' lỗi)'});bp.push({ok:true,t:'Avoids deprecated APIs'});
+ const longs=P.tasks.filter(t=>t.dur>50).length,leak=(window.leak&&window.leak.length)||0;const perf=Math.max(30,Math.round(96-longs*8-leak*3-(N.throttle===Infinity?0:Math.log2(N.throttle)*2)));
+ const sc=arr=>Math.max(0,100-Math.round(arr.filter(x=>!x.ok).length/arr.length*100*0.8));return{cats:[['Performance',perf],['Accessibility',sc(a11y)],['Best Practices',sc(bp)],['SEO',sc(seo)]],aud:{Accessibility:a11y,SEO:seo,'Best Practices':bp}};}
+function lhH(){let body;const tb=`<div class="tb"><span class="ti" data-act="lhclear" title="Clear all">&#128683;</span><b style="padding-left:6px">Lighthouse</b></div>`;
+ if(L.st==='idle')body=`<div class="lh-wrap"><div style="margin-bottom:8px"><b>Mode</b><br><label><input type="radio" name="lm" checked> Navigation (Default)</label><label><input type="radio" name="lm"> Timespan</label><label><input type="radio" name="lm"> Snapshot</label></div><div style="margin-bottom:8px"><b>Device</b><br><label><input type="radio" name="ld" checked> Mobile</label><label><input type="radio" name="ld"> Desktop</label></div><div style="margin-bottom:8px"><b>Categories</b><br><label><input type="checkbox" checked> Performance</label><label><input type="checkbox" checked> Accessibility</label><label><input type="checkbox" checked> Best practices</label><label><input type="checkbox" checked> SEO</label></div><button class="btn-blue" style="margin:4px 0" data-act="lhrun">Analyze page load</button></div>`;
+ else if(L.st==='running')body=`<div class="lh-wrap"><b>${['Loading page…','Gathering page information…','Running audits…','Generating report…'][Math.min(3,Math.floor(L.p/26))]}</b><div class="prog"><i style="width:${L.p}%"></i></div></div>`;
+ else body=`<div class="lh-wrap"><div class="gauges">${L.res.cats.map(([n,v])=>`<div class="gw"><div class="gauge" style="--v:${v};--c:${v>=90?'#0cce6b':v>=50?'#ffa400':'#ff4e42'}"><span>${v}</span></div>${n}</div>`).join('')}</div>${Object.entries(L.res.aud).map(([k,arr])=>`<details ${arr.some(x=>!x.ok)?'open':''}><summary><b>${k}</b></summary>${arr.map(x=>`<div class="aud ${x.ok?'pass':'fail'}">${x.ok?'✓':'✗'} ${esc(x.t)}${(x.items||[]).map(e=>` <a data-act="lhsel" data-i="${(ELREF.push(e),ELREF.length-1)}">${esc(selOf(e))}</a>`).join('')}</div>`).join('')}</details>`).join('')}</div>`;
+ return tb+`<div class="pane-body">${body}</div>`;}
+
+/* ---------- shell / refresh ---------- */
+const PANELS={elements:elementsH,console:consoleH,sources:sourcesH,network:networkH,performance:perfH,memory:memH,application:appH,security:secH,lighthouse:lhH};
+function refreshTabs(){const ico=(t,a,g,on)=>`<div class="dt-icon ${on?'on':''}" title="${t}" data-act="${a}">${g}</div>`;
+ $tabs.innerHTML=ico('Select an element in the page to inspect it (Ctrl+Shift+C)','inspect','&#11034;',S.inspect)+ico('Toggle device toolbar (Ctrl+Shift+M)','device','&#9645;',S.device)+'<div class="dt-sep"></div>'+TABS.map(([k,l])=>`<div class="dt-tab ${k===S.tab?'active':''}" data-act="tab" data-k="${k}">${l}${k==='console'&&C.err?` <span style="color:#ff8080">&#10006;${C.err}</span>`:''}</div>`).join('')+'<div class="dt-spacer"></div>'+ico('Bật/tắt ô giải thích','helptoggle','?',helpOn)+ico('Customize and control DevTools (đổi vị trí dock)','dockmenu','&#8942;')+ico('Close (F12)','close','&#10005;');
+ $drawer.innerHTML=`<div data-act="dtab" data-k="console">&#8942; Console</div><div data-act="dtab" data-k="ai">AI assistance</div><div data-act="dtab" data-k="new">What's new</div><div data-act="dtab" data-k="issues">Issues${C.err?' ('+C.err+')':''}</div><span class="dt-spacer"></span>`;}
+function refresh(){if(dtwrap.classList.contains('hidden'))return;const ae=document.activeElement;const keep=ae&&$body.contains(ae)&&ae.id?{id:ae.id,s:ae.selectionStart,e:ae.selectionEnd,v:ae.value}:null;const keepF=ae&&$body.contains(ae)&&ae.dataset&&ae.dataset.in?{in:ae.dataset.in,s:ae.selectionStart}:null;
+ const sc={};$body.querySelectorAll('[data-scroll]').forEach(e=>{sc[e.dataset.scroll]={t:e.scrollTop,b:e.scrollTop+e.clientHeight>=e.scrollHeight-4};});
+ $body.innerHTML=PANELS[S.tab]();
+ $body.querySelectorAll('[data-scroll]').forEach(e=>{const s=sc[e.dataset.scroll];if(!s)return;e.scrollTop=(e.dataset.scroll==='con'&&s.b)?e.scrollHeight:s.t;});
+ if(keep){const n=document.getElementById(keep.id);if(n){n.focus();if(keep.v!==undefined)n.value=keep.v;try{n.setSelectionRange(keep.s,keep.e);}catch(x){}}}
+ if(keepF){const n=$body.querySelector(`[data-in="${keepF.in}"]`);if(n){n.focus();try{n.setSelectionRange(keepF.s,keepF.s);}catch(x){}}}
+ if(S.tab==='sources'&&SR.goto){const n=document.getElementById('ln'+SR.goto);if(n)n.scrollIntoView({block:'center'});SR.goto=0;}
+ if(S.tab==='sources'&&SR.condLine){const c=document.getElementById('condin');if(c&&document.activeElement!==c)c.focus();}
+ if(S.tab==='sources'&&SR.addWatch){const c=document.getElementById('watchin');if(c&&document.activeElement!==c)c.focus();}
+ if(S.tab==='elements'&&E.editing){const t=document.getElementById('editta');if(t&&document.activeElement!==t)t.focus();}}
+function openDT(show){dtwrap.classList.toggle('hidden',show===undefined?!dtwrap.classList.contains('hidden'):!show);refreshTabs();refresh();}
+function setTab(k){S.tab=k;refreshTabs();refresh();if(typeof helpReset==='function')helpReset();}
+function applyDock(){pagearea.classList.remove('dock-right','dock-bottom','dock-left');pagearea.classList.add('dock-'+S.dock);}
+function selectEl(el,tab){E.sel=el;Object.keys(E.forced).forEach(k=>{if(E.forced[k]!==el){E.forced[k].classList.remove('__f_'+k);delete E.forced[k];}});if(tab){S.tab='elements';refreshTabs();}let x=el.parentElement;while(x&&x!==page){E.exp.add(x);x=x.parentElement;}refresh();}
+function highlight(el){if(!el||!page.contains(el)&&el!==page){hl.style.display='none';return;}const fr=frame.getBoundingClientRect(),r=el.getBoundingClientRect(),cs=getComputedStyle(el);const m=k=>parseFloat(cs.getPropertyValue('margin-'+k))||0;hl.style.display='block';hl.style.left=(r.left-fr.left)+'px';hl.style.top=(r.top-fr.top)+'px';hl.style.width=r.width+'px';hl.style.height=r.height+'px';
+ const M_=hl.querySelector('.m'),B=hl.querySelector('.b');M_.style.cssText=`left:${-m('left')}px;top:${-m('top')}px;width:${r.width+m('left')+m('right')}px;height:${r.height+m('top')+m('bottom')}px`;B.style.cssText='left:0;top:0;width:100%;height:100%';hl.querySelector('.lbl').textContent=selOf(el)+'  '+Math.round(r.width)+' × '+Math.round(r.height);}
+function rebuildForce(){const old=document.querySelector('style[data-dt]');if(old)old.remove();const st=document.createElement('style');st.dataset.dt='1';document.head.appendChild(st);[...mainSheet().cssRules].forEach(r=>{if(!r.selectorText)return;['hover','focus','active','focus-within'].forEach(p=>{if(r.selectorText.includes(':'+p)){try{st.sheet.insertRule(r.selectorText.replace(new RegExp(':'+p+'(?![\\w-])','g'),'.__f_'+p)+'{'+r.style.cssText+'}',st.sheet.cssRules.length);}catch(e){}}});});}
+function copyText(t){try{navigator.clipboard.writeText(t);}catch(e){}console.log('Copied:',t);}
+
+/* ---------- actions ---------- */
+const ACT={
+ tab:t=>setTab(t.dataset.k),close:()=>openDT(false),
+ inspect:()=>{S.inspect=!S.inspect;refreshTabs();},
+ device:()=>{S.device=!S.device;frame.classList.toggle('device',S.device);refreshTabs();},
+ dockmenu:(t,e)=>showCtx(e,[['Dock to right',()=>{S.dock='right';applyDock();}],['Dock to bottom',()=>{S.dock='bottom';applyDock();}],['Dock to left',()=>{S.dock='left';applyDock();}],'-',['Close DevTools',()=>openDT(false)]]),
+ dtab:t=>{if(t.dataset.k==='console')setTab('console');else cadd('info',[],'','<span class="vn">'+({ai:'AI assistance: tính năng chat với AI về trang (không có trong bản mô phỏng).',new:'What\'s new: Chrome DevTools cập nhật liên tục — xem trang chính thức.',issues:'Issues: '+C.err+' lỗi console, 0 vấn đề CSP/cookie.'}[t.dataset.k])+'</span>');},
+ /* elements */
+ selnode:(t)=>{const l=ELL[+t.dataset.i];if(l&&l.el)selectEl(l.el);},
+ toggle:(t,e)=>{e.stopPropagation();const l=ELL[+t.dataset.i];if(E.exp.has(l.el))E.exp.delete(l.el);else E.exp.add(l.el);refresh();},
+ selel:t=>selectEl(ELREF[+t.dataset.i],true),selel2:t=>selectEl(ELREF[+t.dataset.i]),
+ sub:t=>{E.sub=t.dataset.k;E.filter='';refresh();},
+ hov:()=>{E.hov=!E.hov;refresh();},cls:()=>{E.cls=!E.cls;refresh();},
+ showall:t=>{E.showAll=t.checked;refresh();},
+ force:t=>{const p=t.dataset.p;if(!E.sel)return;if(t.checked){E.forced[p]=E.sel;E.sel.classList.add('__f_'+p);}else{E.sel.classList.remove('__f_'+p);delete E.forced[p];}rebuildForce();refresh();},
+ clstoggle:t=>{E.sel.classList.toggle(t.dataset.c,t.checked);refresh();},
+ newrule:()=>{const sh=mainSheet();const s=E.sel?selOf(E.sel):'div';sh.insertRule(s+' {}',sh.cssRules.length);refresh();},
+ proptoggle:t=>{const r=RR[+t.dataset.r],p=t.dataset.p;let d=DIS.get(r.style);if(!d){d=new Map();DIS.set(r.style,d);}if(!t.checked){d.set(p,r.style.getPropertyValue(p));r.style.removeProperty(p);}else{r.style.setProperty(p,d.get(p));d.delete(p);}refresh();},
+ ov:t=>{const el=ELREF[+t.dataset.i];el.classList.toggle('dt-ov',t.checked);if(t.checked)E.ov.add(el);else E.ov.delete(el);},
+ dombp:t=>{const k=E.sel+t.dataset.t;E.bp.set(k,t.checked);if(t.checked){const mo=new MutationObserver(ms=>{ms.forEach(m=>cadd('info',[],'','DOM breakpoint: <b>'+esc(t.dataset.t)+'</b> trên '+esc(selOf(m.target))));});const el=E.sel;mo.observe(t.dataset.t==='attr'?el:t.dataset.t==='removal'?el.parentElement:el,{attributes:t.dataset.t==='attr',childList:t.dataset.t!=='attr',subtree:t.dataset.t==='subtree'});}},
+ editok:()=>{const el=E.editing,v=document.getElementById('editta').value;if(el&&el!==BODY&&el!==HTML){el.insertAdjacentHTML('beforebegin',v);const n=el.previousElementSibling;el.remove();E.sel=n||null;}E.editing=null;refresh();},
+ editcancel:()=>{E.editing=null;refresh();},
+ /* console */
+ conclear:()=>{console.clear();},consettings:()=>{C.settings=!C.settings;refresh();},conpreserve:t=>{C.preserve=t.checked;},
+ gosrc:t=>{const[f,l]=t.dataset.s.split(':');if(FILES()[f]){SR.file=f;SR.goto=+l;setTab('sources');}},
+ /* sources */
+ srcnav:t=>{SR.nav=t.dataset.k;refresh();},srcfile:t=>{SR.file=t.dataset.f;refresh();},ovpick:()=>{SR.ov=true;refresh();},
+ bptoggle:t=>{const n=+t.dataset.ln,i=SR.bps.findIndex(b=>b.file===SR.file&&b.line===n);if(i>=0)SR.bps.splice(i,1);else SR.bps.push({file:SR.file,line:n,on:true,cond:''});refresh();},
+ bpon:t=>{SR.bps[+t.dataset.i].on=t.checked;refresh();},bpdel:t=>{SR.bps.splice(+t.dataset.i,1);refresh();},
+ dbg:t=>{if(t.dataset.k==='into'){const p=SR.paused;if(p){if(p.idx+1>=p.tr.length)dbgFinish();else{p.idx++;SR.goto=p.tr[p.idx].line;refresh();}}}else dbgStep(t.dataset.k);},
+ dbgactive:()=>{SR.active=!SR.active;refresh();},addwatch:(t,e)=>{e.preventDefault();SR.addWatch=true;refresh();},delwatch:(t,e)=>{e.preventDefault();SR.watch.splice(+t.dataset.i,1);refresh();},
+ /* network */
+ netrec:()=>{N.rec=!N.rec;refresh();},netclear:()=>{N.list.length=0;N.sel=null;refresh();},netpreserve:t=>{N.preserve=t.checked;},netcache:t=>{N.noCache=t.checked;},
+ nettype:t=>{N.type=t.dataset.k;refresh();},netsel:t=>{N.sel=+t.dataset.id;refresh();},netclose:()=>{N.sel=null;refresh();},netsub:t=>{N.sub=t.dataset.k;refresh();},
+ nethar:()=>{const har={log:{version:'1.2',entries:N.list.map(e=>({startedDateTime:new Date().toISOString(),time:e.time,request:{method:e.method,url:e.url},response:{status:e.status}}))}};const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(har,null,2)],{type:'application/json'}));a.download='example.com.har';a.click();cadd('info',[],'','<span class="vn">Đã xuất HAR ('+N.list.length+' request).</span>');},
+ /* performance */
+ perfrec:()=>{P.rec&&!P.done?perfStop():perfStart();},perfreload:perfReload,perfclear:()=>{clearInterval(P.timer);P={...P,rec:false,done:false,tasks:[],sel:-1};refresh();},perfsel:t=>{P.sel=+t.dataset.i;refresh();},perfsub:t=>{P.sub=t.dataset.k;refresh();},
+ /* memory */
+ memtype:t=>{M.type=t.dataset.k;M.view=-1;refresh();},memsnap:memSnap,memview:t=>{M.view=+t.dataset.i;refresh();},
+ memrun:()=>{if(M.run){clearInterval(M.timer);M.run=false;M.view=-2;}else{M.run=true;M.samples=[heapNow()];M.timer=setInterval(()=>{M.samples.push(heapNow());if(S.tab==='memory')refresh();},250);}refresh();},
+ /* application */
+ appsel:t=>{A.sel=t.dataset.k;A.selKey=null;refresh();},apptog:(t,e)=>{e.stopPropagation();const k=t.dataset.k;A.exp.has(k)?A.exp.delete(k):A.exp.add(k);refresh();},
+ approw:t=>{A.selKey=t.dataset.k;if(!document.activeElement.isContentEditable)refresh();},apprefresh:()=>refresh(),
+ appdel:()=>{const[b]=A.sel.split(':');if(A.selKey==null)return;if(b==='ls')LS.removeItem(A.selKey);else if(b==='ss')SS.removeItem(A.selKey);else if(b==='cookie'){CK.delete(A.selKey);}A.selKey=null;refresh();},
+ appclear:()=>{const[b]=A.sel.split(':');if(b==='ls')LS.clear();else if(b==='ss')SS.clear();else if(b==='cookie'){CK.clear();}refresh();},
+ clearsite:()=>{LS.clear();SS.clear();CK.clear();cadd('info',[],'','<span class="vn">Đã xoá dữ liệu site (storage + cookies).</span>');refresh();},bftest:()=>cadd('info',[],'','<span class="vn">bfcache: trang đủ điều kiện (mô phỏng).</span>'),
+ /* security / lighthouse */
+ seccert:()=>{SEC.cert=!SEC.cert;refresh();},lhrun:lhRun,lhclear:()=>{L.st='idle';refresh();},lhsel:t=>selectEl(ELREF[+t.dataset.i],true)
+};
+const INP={stfilter:t=>{E.filter=t.value;refresh();},confilter:t=>{C.filter=t.value;refresh();},netfilter:t=>{N.filter=t.value;refresh();}};
+const CH={conlevel:t=>{C.level=t.value;refresh();},throttle:t=>{N.throttle=t.value==='off'?Infinity:+t.value;},cpu:t=>{P.cpu=+t.value;}};
+const BLUR={propedit:t=>{const r=RR[+t.dataset.r],p=t.dataset.p;if(!r)return;let v=t.textContent.trim();const imp=/!important$/.test(v);v=v.replace(/\s*!important$/,'');r.style.setProperty(p,v,imp?'important':'');if(v&&r.style.getPropertyValue(p)===''){t.classList.add('bad');t.title='Giá trị không hợp lệ';}else refresh();},
+ appkey:t=>{const m=t.dataset.kind==='ls'?LS:SS,o=t.dataset.old,n=t.textContent.trim();if(n&&n!==o){const v=m.getItem(o);m.removeItem(o);m.setItem(n,v);}},appval:t=>{(t.dataset.kind==='ls'?LS:SS).setItem(t.dataset.key,t.textContent);},appnew:t=>{const n=t.textContent.trim();if(n)(t.dataset.kind==='ls'?LS:SS).setItem(n,'');}};
+const KEYS={
+ newprop:(t,e)=>{if(e.key!=='Enter')return;const r=RR[+t.dataset.r];const m=t.value.match(/^\s*([\w-]+)\s*:\s*(.+?);?\s*$/);if(m){const imp=/!important/.test(m[2]);r.style.setProperty(m[1],m[2].replace(/\s*!important/,''),imp?'important':'');}t.value='';refresh();},
+ addcls:(t,e)=>{if(e.key==='Enter'&&t.value.trim()){t.value.trim().split(/\s+/).forEach(c=>E.sel.classList.add(c));refresh();}},
+ coninput:(t,e)=>{if(e.key==='Enter'){const v=t.value;if(!v.trim())return;C.hist.push(v);C.hi=C.hist.length;t.value='';evalExpr(v);}else if(e.key==='ArrowUp'){if(C.hi>0){C.hi--;t.value=C.hist[C.hi];e.preventDefault();}}else if(e.key==='ArrowDown'){if(C.hi<C.hist.length){C.hi++;t.value=C.hist[C.hi]||'';e.preventDefault();}}else if(e.key==='l'&&e.ctrlKey){e.preventDefault();console.clear();}},
+ condin:(t,e)=>{if(e.key==='Enter'){const b=SR.bps.find(b=>b.file===SR.file&&b.line===SR.condLine);if(b)b.cond=t.value;else SR.bps.push({file:SR.file,line:SR.condLine,on:true,cond:t.value});SR.condLine=null;refresh();}else if(e.key==='Escape'){SR.condLine=null;refresh();}},
+ watchin:(t,e)=>{if(e.key==='Enter'){if(t.value.trim())SR.watch.push(t.value.trim());SR.addWatch=false;refresh();}else if(e.key==='Escape'){SR.addWatch=false;refresh();}},
+ tree:(t,e)=>{const idx=ELL.findIndex(l=>l.el===E.sel&&l.k!=='close'&&l.k!=='text');const sel=ELL.map((l,i)=>[l,i]).filter(([l])=>l.el&&l.k!=='close');const pos=sel.findIndex(([l,i])=>i===idx);
+  if(e.key==='ArrowDown'&&sel[pos+1]){selectEl(sel[pos+1][0].el);e.preventDefault();}else if(e.key==='ArrowUp'&&sel[pos-1]){selectEl(sel[pos-1][0].el);e.preventDefault();}
+  else if(e.key==='ArrowRight'){E.exp.add(E.sel);refresh();}else if(e.key==='ArrowLeft'){E.exp.delete(E.sel);refresh();}
+  else if(e.key==='Delete'||e.key==='Backspace'){delEl(E.sel);e.preventDefault();}else if(e.key==='z'&&e.ctrlKey){undoDel();e.preventDefault();}else if(e.key==='h'){E.sel.style.visibility=E.sel.style.visibility==='hidden'?'':'hidden';refresh();}}
+};
+function delEl(el){if(!el||el===BODY||el===HTML||el===document.head)return;E.undo.push({p:el.parentNode,n:el.nextSibling,el});const nx=el.nextElementSibling||el.previousElementSibling||el.parentElement;el.remove();E.sel=nx&&page.contains(nx)?nx:BODY;refresh();}
+function undoDel(){const u=E.undo.pop();if(u){u.p.insertBefore(u.el,u.n);E.sel=u.el;refresh();}}
+function showCtx(e,items){e.preventDefault();ctx.innerHTML=items.map((it,i)=>it==='-'?'<hr>':`<div data-i="${i}">${esc(it[0])}</div>`).join('');ctx.style.display='block';ctx.style.left=Math.min(e.clientX,innerWidth-220)+'px';ctx.style.top=Math.min(e.clientY,innerHeight-items.length*26)+'px';ctx._items=items;}
+on(ctx,'click',e=>{const d=e.target.closest('[data-i]');if(d){const it=ctx._items[+d.dataset.i];ctx.style.display='none';it[1]();}});
+on(document,'click',e=>{if(!ctx.contains(e.target))ctx.style.display='none';},true);
+let tmpN=0;
+const CTX={node:(e,t)=>{const l=ELL[+t.dataset.i];const el=l.el;selectEl(el);showCtx(e,[['Edit as HTML',()=>{E.editing=el;refresh();}],['Delete element',()=>delEl(el)],['Hide element (H)',()=>{el.style.visibility=el.style.visibility==='hidden'?'':'hidden';refresh();}],'-',['Force state: :hover',()=>{E.forced.hover=el;el.classList.add('__f_hover');rebuildForce();refresh();}],['Force state: :active',()=>{E.forced.active=el;el.classList.add('__f_active');rebuildForce();refresh();}],['Force state: :focus',()=>{E.forced.focus=el;el.classList.add('__f_focus');rebuildForce();refresh();}],'-',['Copy selector',()=>copyText(selOf(el))],['Copy outerHTML',()=>copyText(el.outerHTML)],['Expand recursively',()=>{[el,...el.querySelectorAll('*')].forEach(x=>E.exp.add(x));refresh();}],['Store as global variable',()=>{const n='temp'+(++tmpN);window[n]=el;cadd('in',[],'',n);cadd('out',[],'',fv(el,false));}],['Scroll into view',()=>el.scrollIntoView({block:'center'})]]);},
+ gutter:(e,t)=>{const n=+t.dataset.ln;showCtx(e,[['Add breakpoint',()=>{if(!SR.bps.some(b=>b.file===SR.file&&b.line===n))SR.bps.push({file:SR.file,line:n,on:true,cond:''});refresh();}],['Add conditional breakpoint…',()=>{SR.condLine=n;refresh();}],['Remove breakpoint',()=>{SR.bps=SR.bps.filter(b=>!(b.file===SR.file&&b.line===n));refresh();}]]);}};
+on(dtwrap,'click',e=>{const t=e.target.closest('[data-act]');if(t&&dtwrap.contains(t)&&ACT[t.dataset.act])ACT[t.dataset.act](t,e);});
+on(dtwrap,'input',e=>{const t=e.target.closest('[data-in]');if(t)INP[t.dataset.in](t);});
+on(dtwrap,'change',e=>{const t=e.target.closest('[data-ch]');if(t)CH[t.dataset.ch](t);});
+on(dtwrap,'focusout',e=>{const t=e.target.closest&&e.target.closest('[data-blur]');if(t)BLUR[t.dataset.blur](t);});
+on(dtwrap,'keydown',e=>{const t=e.target.closest('[data-key]');if(t&&KEYS[t.dataset.key])KEYS[t.dataset.key](t,e);else if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.blur){e.preventDefault();e.target.blur();}
+ if(e.key==='Delete'&&S.tab==='application'&&!e.target.isContentEditable)ACT.appdel();});
+on(dtwrap,'contextmenu',e=>{const t=e.target.closest('[data-ctx]');if(t&&CTX[t.dataset.ctx])CTX[t.dataset.ctx](e,t);});
+on(dtwrap,'mouseover',e=>{const t=e.target.closest('[data-hov]');if(t){const l=ELL[+t.dataset.hov];if(l&&l.el)highlight(l.el);}});
+on(dtwrap,'mouseleave',()=>{hl.style.display='none';});
+on(q('#dtbtn'),'click',()=>openDT());
+on(q('#devsel'),'change',e=>{page.style.width=e.target.value+'px';});
+/* inspect mode */
+on(frame,'mouseover',e=>{if(!S.inspect)return;const el=e.target;if(el===frame||!page.contains(el)||el===page)return highlight(null);highlight(el);});
+on(frame,'click',e=>{if(!S.inspect)return;e.preventDefault();e.stopPropagation();const el=e.target;if(page.contains(el)&&el!==page){S.inspect=false;selectEl(el,true);hl.style.display='none';}},true);
+/* shortcuts + palette */
+const pal=q('#pal'),palin=q('#palin'),pallist=q('#pallist');
+const CMDS=()=>[...TABS.map(([k,l])=>['Show '+l,()=>setTab(k)]),['Clear console',()=>console.clear()],['Toggle device toolbar',ACT.device],['Dock to bottom',()=>{S.dock='bottom';applyDock();}],['Dock to right',()=>{S.dock='right';applyDock();}],['Dock to left',()=>{S.dock='left';applyDock();}],['Reload page',pageReload],['Disable cache',()=>{N.noCache=true;refresh();}],['Enable cache',()=>{N.noCache=false;refresh();}],['Start recording performance',perfStart],['Take heap snapshot',()=>{setTab('memory');memSnap();}]];
+let palSel=0,palCur=[];
+function palRender(){const f=palin.value.toLowerCase();palCur=CMDS().filter(c=>c[0].toLowerCase().includes(f));palSel=Math.min(palSel,Math.max(0,palCur.length-1));pallist.innerHTML=palCur.map((c,i)=>`<div class="it ${i===palSel?'sel':''}" data-i="${i}">${esc(c[0])}</div>`).join('');}
+function palOpen(){openDT(true);pal.style.display='block';palin.value='';palSel=0;palRender();palin.focus();}
+on(palin,'input',palRender);on(palin,'keydown',e=>{if(e.key==='ArrowDown'){palSel=Math.min(palCur.length-1,palSel+1);palRender();e.preventDefault();}else if(e.key==='ArrowUp'){palSel=Math.max(0,palSel-1);palRender();e.preventDefault();}else if(e.key==='Enter'){const c=palCur[palSel];pal.style.display='none';if(c)c[1]();}else if(e.key==='Escape')pal.style.display='none';});
+on(pallist,'click',e=>{const d=e.target.closest('[data-i]');if(d){pal.style.display='none';palCur[+d.dataset.i][1]();}});
+on(document,'keydown',e=>{const k=e.key.toLowerCase();
+ if(e.key==='F12'||(e.ctrlKey&&e.shiftKey&&k==='i')){e.preventDefault();openDT();}
+ else if(e.ctrlKey&&e.shiftKey&&k==='j'){e.preventDefault();S.tab='console';openDT(true);}
+ else if(e.ctrlKey&&e.shiftKey&&k==='c'){e.preventDefault();openDT(true);ACT.inspect();}
+ else if(e.ctrlKey&&e.shiftKey&&k==='m'){e.preventDefault();openDT(true);ACT.device();}
+ else if(e.ctrlKey&&e.shiftKey&&k==='p'){e.preventDefault();palOpen();}
+ else if(SR.paused&&e.key==='F8'){e.preventDefault();dbgStep('resume');}else if(SR.paused&&e.key==='F10'){e.preventDefault();dbgStep('over');}
+ else if(SR.paused&&e.key==='F11'){e.preventDefault();e.shiftKey?dbgStep('out'):ACT.dbg({dataset:{k:'into'}});}
+ else if(e.ctrlKey&&k==='l'&&dtwrap.contains(document.activeElement)&&S.tab==='console'){e.preventDefault();console.clear();}
+ else if(e.key==='Escape'){S.inspect=false;hl.style.display='none';E.editing=null;pal.style.display='none';if(!dtwrap.classList.contains('hidden'))refreshTabs();}});
+
+
+/* ---------- giải thích (học) ---------- */
+const HELP={
+'tab:elements':'Elements|Xem và sửa cấu trúc HTML (cây DOM) cùng CSS của trang ngay khi đang chạy. Dùng để tìm vì sao một phần tử có màu/khoảng cách như vậy. Thay đổi chỉ tạm thời, mất khi reload.',
+'tab:console':'Console|Nơi xem log/lỗi của trang và gõ lệnh JavaScript chạy trực tiếp trên trang. Dấu ✖ đỏ cạnh tên tab là số lỗi đã xảy ra.',
+'tab:sources':'Sources|Xem mã nguồn (HTML/JS/CSS), đặt breakpoint để dừng code và chạy từng dòng (debug). Có Watch/Scope/Call Stack để xem giá trị biến lúc đang dừng.',
+'tab:network':'Network|Ghi lại mọi request mà trang gửi (HTML, JS, ảnh, API…): trạng thái, dung lượng, thời gian. Dùng để tìm API lỗi, tài nguyên nặng hoặc chậm.',
+'tab:performance':'Performance|Ghi lại hoạt động của trang theo thời gian (flame chart) để tìm đoạn code chạy lâu gây giật lag (long task > 50 ms).',
+'tab:memory':'Memory|Chụp heap snapshot hoặc theo dõi cấp phát để tìm rò rỉ bộ nhớ (memory leak) — object không được giải phóng.',
+'tab:application':'Application|Xem dữ liệu trình duyệt lưu cho trang: Local/Session storage, Cookies, IndexedDB, Service worker, Manifest, Cache… Bấm từng mục bên trái để xem giải thích riêng.',
+'tab:security':'Security|Kiểm tra HTTPS: chứng chỉ, kết nối TLS, mixed content (tài nguyên http trong trang https).',
+'tab:lighthouse':'Lighthouse|Chạy kiểm tra tự động và chấm điểm Performance, Accessibility, Best Practices, SEO kèm gợi ý sửa cụ thể.',
+'inspect':'Inspect (Ctrl+Shift+C)|Bật chế độ chọn phần tử: rê chuột lên trang để thấy khung highlight, bấm vào để nhảy tới node đó trong Elements.',
+'device':'Device toolbar (Ctrl+Shift+M)|Giả lập màn hình điện thoại/máy tính bảng để kiểm tra giao diện responsive.',
+'dockmenu':'Menu ⋮|Đổi vị trí DevTools: dock bên phải, dưới hoặc trái; hoặc đóng DevTools.',
+'close':'Đóng|Đóng DevTools (cũng là phím F12).',
+'helptoggle':'Ô giải thích|Bật/tắt thanh giải thích này. Rê chuột hoặc bấm vào bất kỳ nút nào để xem công dụng của nó.',
+'dtab:console':'Console drawer|Ngăn kéo dưới cùng; mở Console nhanh từ bất kỳ tab nào (phím Esc trong DevTools thật).',
+'dtab:ai':'AI assistance|Hỏi AI về lỗi/CSS/hiệu năng của trang ngay trong DevTools (tính năng của Chrome mới).',
+'dtab:new':'What\'s new|Tóm tắt tính năng mới của mỗi bản DevTools.',
+'dtab:issues':'Issues|Gom cảnh báo của trình duyệt về cookie, CSP, mixed content, deprecated API… ở một chỗ.',
+'selnode':'Node DOM|Bấm để chọn phần tử (hiện ở dòng ==$0, dùng được trong Console bằng $0). Chuột phải: Edit as HTML, Delete, Hide, Force state, Copy selector. Phím mũi tên để di chuyển, Delete để xoá, Ctrl+Z hoàn tác.',
+'toggle':'Mũi tên ▸/▾|Mở/đóng các phần tử con của node. Chuột phải → Expand recursively để mở tất cả.',
+'selel2':'Breadcrumb|Đường dẫn từ <html> tới phần tử đang chọn. Bấm một mục để chọn phần tử cha.',
+'sub:styles':'Styles|Danh sách rule CSS đang áp vào phần tử, từ ưu tiên cao xuống thấp. Bấm giá trị để sửa, tick ô bên trái để bật/tắt từng thuộc tính; gõ vào dòng trống cuối rule để thêm thuộc tính. Trang đổi ngay.',
+'sub:computed':'Computed|Giá trị CSS cuối cùng sau khi trình duyệt tính toán + box model (margin / border / padding / content) với số đo thật.',
+'sub:layout':'Layout|Liệt kê phần tử dùng Flexbox/Grid; tick để vẽ khung overlay đường kẻ trên trang giúp hiểu bố cục.',
+'sub:events':'Event Listeners|Các sự kiện (click, resize…) đã gắn vào phần tử hoặc document/window, kèm hàm xử lý.',
+'sub:dombp':'DOM Breakpoints|Báo khi phần tử bị đổi: subtree (con thay đổi), attribute (thuộc tính đổi), removal (bị xoá) — để tìm code nào đang sửa DOM.',
+'sub:props':'Properties|Các thuộc tính JavaScript của đối tượng DOM (id, className, offsetWidth, innerHTML…).',
+'sub:a11y':'Accessibility|Xem role/name mà trình đọc màn hình thấy, và tỉ lệ tương phản chữ/nền (cần ≥ 4.5 cho chữ thường theo chuẩn WCAG AA).',
+'hov':':hov — ép trạng thái|Ép phần tử vào :hover, :active, :focus, :focus-within, :visited để debug CSS mà không phải rê chuột thật (khi rê chuột ra ngoài DevTools, hover sẽ mất).',
+'cls':'.cls — class|Xem danh sách class của phần tử, tick để bật/tắt, gõ tên class mới + Enter để thêm.',
+'newrule':'+ New Style Rule|Tạo rule CSS mới với selector của phần tử đang chọn, rồi thêm thuộc tính vào.',
+'force':'Force state|Bật trạng thái giả của phần tử để thấy các rule :hover/:active/:focus áp dụng.',
+'proptoggle':'Ô tick thuộc tính|Tắt/bật một khai báo CSS để thử xem nó ảnh hưởng gì.',
+'stfilter':'Filter|Lọc theo tên thuộc tính hoặc giá trị CSS (vd: gõ "color").',
+'showall':'Show all|Hiện toàn bộ thuộc tính computed (mặc định chỉ hiện nhóm hay dùng).',
+'ov':'Overlay Flex/Grid|Vẽ viền tím nét đứt quanh container flex/grid trên trang.',
+'dombp:subtree':'Subtree modifications|Báo mỗi khi thêm/xoá/sửa phần tử con bên trong node này.',
+'dombp:attr':'Attribute modifications|Báo mỗi khi thuộc tính của node này thay đổi (class, style, id…).',
+'dombp:removal':'Node removal|Báo khi node này bị xoá khỏi DOM.',
+'editok':'Apply|Áp dụng HTML mới thay cho node (Edit as HTML).',
+'conclear':'Clear console (Ctrl+L)|Xoá toàn bộ nội dung Console. Gõ clear() cũng được.',
+'consettings':'Console settings|Mở tuỳ chọn: Preserve log, Hide network, Group similar…',
+'conpreserve':'Preserve log|Giữ log cũ khi reload/chuyển trang (mặc định bị xoá mỗi lần tải lại).',
+'confilter':'Filter|Chỉ hiện dòng log chứa chuỗi bạn gõ.',
+'conlevel':'Log levels|Lọc theo mức: Verbose (debug), Info, Warnings, Errors.',
+'coninput':'Dòng nhập lệnh|Gõ JavaScript rồi Enter để chạy trên trang. Thử: console.table([1,2,3]) · $0 (phần tử đang chọn trong Elements) · $$("button") · total(cart) · monitor(total) · copy(cart). Mũi tên ↑↓ để xem lại lệnh cũ.',
+'gosrc':'Link nguồn|Tên file:dòng nơi log được in ra; bấm để mở đúng dòng trong Sources.',
+'srcnav:page':'Page|Cây file của trang đang tải (index.html, app.js).',
+'srcnav:ov':'Overrides|Local Overrides: chọn thư mục để lưu bản sửa file (JS/CSS/HTML/response) và tự áp dụng mỗi lần reload mà không đụng server thật.',
+'srcfile':'File|Chọn file để xem mã nguồn.',
+'bptoggle':'Số dòng (breakpoint)|Bấm số dòng để đặt/bỏ breakpoint (xanh). Code sẽ dừng ở dòng này khi chạy. Chuột phải để đặt breakpoint có điều kiện (vàng). Thử: đặt dòng 2 rồi bấm "Tính tổng".',
+'bpon':'Bật/tắt breakpoint|Tạm tắt một breakpoint mà không xoá nó.',
+'bpdel':'Xoá breakpoint|Xoá breakpoint khỏi danh sách.',
+'dbg:resume':'Resume (F8)|Chạy tiếp cho tới breakpoint kế tiếp hoặc hết code.',
+'dbg:over':'Step over (F10)|Chạy hết dòng hiện tại, không nhảy vào bên trong hàm được gọi.',
+'dbg:into':'Step into (F11)|Nhảy vào bên trong hàm được gọi ở dòng hiện tại (vd từ calculate vào total).',
+'dbg:out':'Step out (Shift+F11)|Chạy cho tới khi thoát khỏi hàm hiện tại.',
+'dbgactive':'Deactivate breakpoints|Tắt tạm toàn bộ breakpoint (không xoá) để chạy bình thường.',
+'addwatch':'Watch +|Thêm biểu thức (vd: sum, items.length) để theo dõi giá trị liên tục mỗi khi dừng.',
+'delwatch':'Xoá watch|Bỏ biểu thức theo dõi.',
+'condin':'Điều kiện|Breakpoint chỉ dừng khi biểu thức đúng, vd: sum > 50 hoặc items.length === 3.',
+'netrec':'Record|Bật/tắt ghi request (chấm đỏ = đang ghi). Bật trước khi reload để bắt từ request đầu tiên.',
+'netclear':'Clear|Xoá danh sách request hiện tại.',
+'netpreserve':'Preserve log|Giữ danh sách request qua các lần reload/chuyển trang.',
+'netcache':'Disable cache|Bỏ qua cache của trình duyệt để thấy kích thước/thời gian tải thật (cột Size sẽ không còn "(disk cache)").',
+'throttle':'Throttling|Giả lập mạng chậm (Fast 3G, Slow 3G) hoặc Offline để test trải nghiệm mạng yếu. Thử rồi bấm "Gọi API".',
+'nethar':'Export HAR|Tải toàn bộ phiên Network thành file .har để chia sẻ hoặc phân tích.',
+'netfilter':'Filter|Lọc request theo chuỗi trong URL.',
+'nettype':'Bộ lọc loại|Lọc theo loại tài nguyên: Fetch/XHR (API), JS, CSS, Img, Font, Doc (HTML)…',
+'netsel':'Dòng request|Bấm để xem chi tiết: Headers (URL, method, status), Payload (dữ liệu gửi), Preview/Response (dữ liệu nhận), Timing (thời gian từng giai đoạn).',
+'netsub:headers':'Headers|Thông tin request/response: URL, method, status code và các header.',
+'netsub:payload':'Payload|Dữ liệu client gửi lên (body/query).',
+'netsub:preview':'Preview|Xem nội dung phản hồi dạng đã định dạng (JSON đẹp).',
+'netsub:response':'Response|Nội dung phản hồi thô từ server.',
+'netsub:timing':'Timing|Chia thời gian request: chờ trong hàng đợi, gửi, chờ server (TTFB), tải nội dung.',
+'netclose':'Đóng chi tiết|Đóng khung chi tiết request.',
+'th:Name':'Name|Tên (hoặc key) của mục.','th:Status':'Status|Mã trạng thái HTTP: 2xx thành công, 3xx chuyển hướng, 4xx lỗi phía client (404 không tìm thấy), 5xx lỗi server.',
+'th:Type':'Type|Loại tài nguyên (document, script, xhr/fetch, image…).','th:Initiator':'Initiator|Nơi gây ra request: file và dòng code (vd app.js:15) — giúp tìm code nào gọi API.',
+'th:Size':'Size|Dung lượng đã truyền; "(disk cache)" nghĩa là lấy từ cache, không tốn mạng.','th:Time':'Time|Tổng thời gian của request.','th:Waterfall':'Waterfall|Thanh thể hiện thời điểm bắt đầu và độ dài của request trên trục thời gian chung.',
+'th:Key':'Key|Khoá của cặp key-value (double-click để sửa).','th:Value':'Value|Giá trị lưu cho khoá đó (double-click để sửa).',
+'th:Domain':'Domain|Tên miền được phép nhận cookie này.','th:Path':'Path|Cookie chỉ gửi kèm các request có đường dẫn bắt đầu bằng path này.',
+'th:Expires':'Expires|Thời điểm cookie hết hạn; "Session" = mất khi đóng trình duyệt.','th:HttpOnly':'HttpOnly|Có ✓ nghĩa là JavaScript KHÔNG đọc được cookie (chống XSS đánh cắp). Thử gõ document.cookie ở Console: sẽ không thấy "sid".',
+'th:Secure':'Secure|Có ✓ nghĩa là cookie chỉ gửi qua HTTPS.','th:SameSite':'SameSite|Giới hạn gửi cookie khi request đến từ site khác (Strict / Lax / None) — chống CSRF.',
+'perfrec':'Record (Ctrl+E)|Bắt đầu/dừng ghi. Trong lúc ghi hãy click các nút trên trang; khi dừng sẽ thấy flame chart.',
+'perfreload':'Reload & record|Tự tải lại trang và ghi ngay từ đầu để đo thời gian tải trang.',
+'perfclear':'Clear|Xoá bản ghi hiện tại.',
+'cpu':'CPU throttling|Giả lập CPU yếu (4×/6× chậm hơn) để test trên máy cấu hình thấp.',
+'perfsel':'Khối trong flame chart|Mỗi khối là một tác vụ/hàm; càng rộng càng tốn thời gian. Đỏ có sọc = long task (> 50 ms) gây giật lag. Bấm để xem chi tiết.',
+'perfsub:summary':'Summary|Tổng thời gian theo loại: Scripting (JS), Rendering, Painting, System, Idle.',
+'perfsub:bottom':'Bottom-Up|Xếp hoạt động theo thời gian tự thân giảm dần — tìm hàm tốn nhiều nhất.',
+'perfsub:tree':'Call Tree|Cây lời gọi hàm với tổng thời gian từng nhánh.',
+'perfsub:log':'Event Log|Danh sách sự kiện theo thứ tự thời gian.',
+'memtype:heap':'Heap snapshot|Chụp toàn bộ bộ nhớ JS tại một thời điểm. Chụp 2 lần (trước/sau khi bấm "Tạo memory leak") rồi so sánh để tìm object không được giải phóng.',
+'memtype:alloc':'Allocation timeline|Ghi lại việc cấp phát bộ nhớ theo thời gian thực; cột xanh cao = bộ nhớ đang giữ nhiều.',
+'memsnap':'Take snapshot|Chụp heap ngay bây giờ. Xem bảng Constructor (loại object) và chênh lệch so với snapshot trước.',
+'memrun':'Start/Stop|Bắt đầu/dừng ghi allocation timeline. Khi đang ghi hãy bấm "Tạo memory leak".',
+'memview':'Profile|Chọn snapshot/timeline đã ghi để xem.',
+'apptog':'Mũi tên|Mở/đóng nhánh con (vd Local storage → origin).',
+'apprefresh':'Refresh|Tải lại dữ liệu hiển thị.','appdel':'Delete selected|Xoá dòng đang chọn (bấm một dòng trước). Phím Delete cũng được.','appclear':'Clear all|Xoá toàn bộ dữ liệu trong bảng đang xem.',
+'approw':'Dòng dữ liệu|Bấm để chọn; double-click ô để sửa; dòng trống cuối để thêm key mới.',
+'appkey':'Sửa key|Đổi tên khoá rồi bấm ra ngoài hoặc Enter.',
+'appval':'Sửa value|Đổi giá trị rồi bấm ra ngoài hoặc Enter — kiểm tra bằng localStorage.getItem("token") ở Console.',
+'clearsite':'Clear site data|Xoá toàn bộ storage + cookies của origin này.','bftest':'Test bfcache|Kiểm tra trang có thể cache nguyên trạng khi bấm Back/Forward.',
+'appsel:manifest':'Manifest|File manifest.json mô tả web app (tên, icon, màu, chế độ hiển thị) để cài đặt như ứng dụng (PWA). Kiểm tra: có <link rel="manifest">, có icon 192/512px, start_url hợp lệ.',
+'appsel:sw':'Service workers|Script chạy nền giữa trang và mạng: cache offline, push notification, background sync. Tại đây có thể Unregister, tick Offline để giả lập mất mạng, Update on reload khi đang phát triển, Bypass for network để bỏ qua cache.',
+'appsel:storage':'Storage|Tổng quan dung lượng origin đang dùng (storage + cache) so với quota, và nút Clear site data để xoá sạch khi test lại từ đầu.',
+'appsel:ls':'Local storage|Lưu cặp key-value (chuỗi) vĩnh viễn trong trình duyệt, theo origin, ~5 MB, không tự hết hạn và không gửi kèm request. Hay dùng cho theme, token, cấu hình. API: localStorage.setItem(k,v) / getItem(k) / removeItem(k) / clear(). Mở nhánh origin để xem và sửa dữ liệu.',
+'appsel:ls:o':'Dữ liệu Local storage|Thử: double-click ô Value để sửa; bấm ô trống cuối bảng gõ key mới; chọn dòng rồi bấm ✕ để xoá. Hoặc ở Console gõ localStorage.setItem("a","1") rồi xem bảng đổi. Dữ liệu còn nguyên sau khi reload.',
+'appsel:ss':'Session storage|Giống Local storage nhưng chỉ sống trong một tab và mất khi đóng tab. Dùng cho trạng thái tạm (bước đang làm của form, tab đang mở).',
+'appsel:ss:o':'Dữ liệu Session storage|Sửa/thêm/xoá như Local storage. Khác biệt: reload vẫn còn, nhưng đóng tab là mất. API: sessionStorage.setItem/getItem.',
+'appsel:ext':'Extension storage|Dữ liệu mà extension Chrome lưu cho trang/origin này (chrome.storage). Thường trống khi không cài extension liên quan.',
+'appsel:idb':'IndexedDB|CSDL phía client, lưu lượng lớn (hàng trăm MB), có index và transaction, dùng cho web app offline. Mở nhánh để xem database → object store → bản ghi. Dùng thư viện như idb/Dexie để thao tác dễ hơn.',
+'appsel:idb:o':'Dữ liệu IndexedDB|Hiện database example-db với các object store (items, settings) và bản ghi bên trong. Trong DevTools thật có thể xem, lọc và xoá từng bản ghi.',
+'appsel:cookie':'Cookies|Chuỗi nhỏ (~4 KB) server hoặc JS đặt, trình duyệt tự gửi kèm mọi request cùng domain/path. Dùng cho đăng nhập (session id), ngôn ngữ, theo dõi. Mở nhánh origin để xem các cột: Name, Value, Domain, Path, Expires, HttpOnly, Secure, SameSite (rê chuột vào tên cột để xem giải thích).',
+'appsel:cookie:o':'Bảng cookie|Cookie "sid" có HttpOnly nên JS không đọc được (thử document.cookie ở Console: chỉ thấy lang). Thử: document.cookie="a=1; path=/" rồi xem dòng mới; chọn dòng và bấm ✕ để xoá.',
+'appsel:pst':'Private state tokens|Cơ chế chống gian lận/bot không cần theo dõi người dùng (token ẩn danh do nhà phát hành cấp). Chỉ có dữ liệu khi trang dùng Private State Token API.',
+'appsel:cache':'Cache storage|Kho response do service worker hoặc code (caches.open) lưu để tải offline/nhanh. Mỗi cache chứa các cặp request→response; có thể xem và xoá từng mục.',
+'appsel:bucket':'Storage buckets|Nhóm dữ liệu lưu trữ có chính sách riêng (độ bền, hạn mức, hết hạn) qua Storage Buckets API — cho phép dọn từng nhóm khi thiếu dung lượng.',
+'appsel:bf':'Back/forward cache|Cache nguyên trạng cả trang để bấm Back/Forward hiện tức thì. Bấm "Test back/forward cache" để biết trang có đủ điều kiện và lý do bị chặn (unload handler, Cache-Control: no-store…).',
+'appsel:bfetch':'Background fetch|Ghi lại sự kiện tải file lớn chạy nền do service worker quản lý (vd tải video khi đã đóng tab). Bấm Record để bắt đầu ghi sự kiện.',
+'appsel:bsync':'Background sync|Ghi lại sự kiện đồng bộ nền: service worker gửi lại dữ liệu khi có mạng trở lại (vd gửi tin nhắn đã soạn lúc offline).',
+'appsel:bounce':'Bounce tracking mitigations|Tính năng chống theo dõi: xoá dữ liệu của site chỉ dùng để chuyển hướng qua rồi đi (bounce) mà người dùng không tương tác. Bấm "Force run" trong DevTools thật để chạy thử.',
+'appsel:notif':'Notifications|Ghi lại các sự kiện thông báo (hiện, đóng, click) của trang/service worker khi người dùng cấp quyền thông báo.',
+'appsel:pay':'Payment handler|Ghi lại sự kiện khi service worker đóng vai ứng dụng thanh toán (Payment Request API).',
+'appsel:pbs':'Periodic background sync|Ghi lại sự kiện đồng bộ nền theo chu kỳ (vd làm mới tin tức mỗi ngày) do service worker đăng ký.',
+'appsel:spec':'Speculative loads|Xem trạng thái prefetch/prerender từ Speculation Rules: trang kế tiếp được tải trước để mở tức thì; hiện lý do thành công hoặc thất bại.',
+'appsel:push':'Push messaging|Ghi lại sự kiện push: server đẩy tin xuống service worker kể cả khi trang đang đóng.',
+'appsel:rep':'Reporting API|Danh sách báo cáo (CSP vi phạm, deprecation, crash…) mà trình duyệt gửi tới endpoint bạn cấu hình qua header Reporting-Endpoints.',
+'appsel:dbs':'Device bound sessions|Phiên đăng nhập gắn với khoá phần cứng của thiết bị để cookie bị đánh cắp cũng không dùng được ở máy khác.',
+'appsel:frame':'Frames (top)|Cây các frame (trang chính và iframe) với thông tin: URL, Secure context, Cross-origin isolated, và tài nguyên từng frame.',
+'seccert':'View certificate|Xem chi tiết chứng chỉ SSL/TLS: ai cấp, hạn dùng, dấu vân tay.',
+'lhrun':'Analyze page load|Chạy kiểm tra Lighthouse trên trang: chấm điểm 4 nhóm và liệt kê mục đạt/không đạt.',
+'lhclear':'Clear|Xoá báo cáo, quay về màn chọn cấu hình.',
+'lhsel':'Phần tử lỗi|Bấm tên phần tử bị báo lỗi để nhảy tới nó trong Elements và sửa.'
+};
+let helpOn=true;
+function helpKey(t){for(let n=t;n&&n!==dtwrap;n=n.parentElement){const d=n.dataset||{};if(d.help&&HELP[d.help])return d.help;
+ if(d.act){const sub=d.k||d.p||d.t||d.c;if(sub&&HELP[d.act+':'+sub])return d.act+':'+sub;if(HELP[d.act])return d.act;}
+ const key=d.in||d.ch||d.key||d.blur;if(key&&HELP[key])return key;
+ if(n.tagName==='TH'&&HELP['th:'+n.textContent.trim()])return 'th:'+n.textContent.trim();
+ if(n.classList&&n.classList.contains('ed-ln'))return 'bptoggle';}return null;}
+const helpbar=q('#helpbar');
+const SNIPOUT={},SNIPREG=[];let lastKey='';
+const SNIP={
+'tab:elements':[['Chọn phần tử rồi đọc/sửa nội dung','document.querySelector("#demo-title").textContent = "Xin chào DevTools"'],['Đổi style bằng JS','document.querySelector("#demo-text").style.color = "crimson"'],['Thêm phần tử mới vào trang','document.querySelector("#page").insertAdjacentHTML("beforeend", "<p>Đoạn mới thêm bằng JS</p>")']],
+'selnode':[['Phần tử đang chọn trong cây DOM ($0)','$0'],['Thêm class / đặt attribute','$0.classList.add("active"); $0.setAttribute("data-x", "1"); $0.outerHTML'],['Lấy tất cả nút trên trang','$$("button").map(b => b.textContent)'],['Xoá phần tử (Ctrl+Z trong cây DOM để hoàn tác)','$0.remove()']],
+'sub:styles':[['Sửa CSS của phần tử đang chọn','$0.style.setProperty("color", "tomato"); $0.style.cssText'],['Xem giá trị CSS cuối cùng','getComputedStyle($0).color'],['Đổi biến CSS toàn trang','document.documentElement.style.setProperty("--accent", "#f28b82")']],
+'sub:computed':[['Kích thước và vị trí thật','JSON.stringify($0.getBoundingClientRect())'],['Đọc nhiều thuộc tính computed','(({display, fontSize, lineHeight}) => ({display, fontSize, lineHeight}))(getComputedStyle($0))']],
+'sub:layout':[['Bật flex cho container rồi xem tab Layout','document.querySelector(".btnrow").style.display = "flex"; getComputedStyle(document.querySelector(".btnrow")).display']],
+'sub:events':[['Gắn listener mới rồi xem ở tab Event Listeners','document.querySelector("#demo-btn").addEventListener("mouseover", function hello() { console.log("rê chuột!") })'],['Kích hoạt click bằng code','document.querySelector("#demo-btn").click()']],
+'sub:dombp':[['Quan sát thay đổi DOM bằng MutationObserver','new MutationObserver(m => console.log("đổi:", m.length)).observe($0, {attributes: true}); $0.setAttribute("x", Date.now())']],
+'sub:props':[['Đọc thuộc tính DOM','({tag: $0.tagName, id: $0.id, w: $0.offsetWidth, h: $0.offsetHeight})']],
+'sub:a11y':[['Đọc thuộc tính ARIA / role','$0.getAttribute("aria-label") ?? $0.getAttribute("role") ?? "(chưa có)"'],['Gán nhãn truy cập','$0.setAttribute("aria-label", "Nút demo"); $0.outerHTML']],
+'tab:console':[['In theo mức độ','console.log("thông tin"); console.warn("cảnh báo"); console.error("lỗi")'],['Hiện mảng dạng bảng','console.table([{ten:"An", tuoi:20},{ten:"Bình", tuoi:25}])'],['Nhóm log','console.group("Nhóm"); console.log(1); console.log(2); console.groupEnd()'],['Định dạng %c / %s / %d','console.log("%cMàu đỏ %s có %d mục", "color:red;font-weight:bold", "giỏ", cart.length)']],
+'coninput':[['Tiện ích Console: $0, $, $$','$$("p").length'],['copy() vào clipboard','copy(cart)'],['monitor() theo dõi lời gọi hàm','monitor(total); total(cart)'],['Biểu thức bất kỳ','cart.map(x => x * 2).filter(x => x > 20)']],
+'conclear':[['Xoá Console bằng code','console.clear()']],
+'tab:sources':[['Chạy hàm trong app.js (đặt breakpoint dòng 2 để dừng)','total(cart)'],['Hàm có nhiều bước để Step over/into','calculate()']],
+'bptoggle':[['Chạy code để chạm breakpoint dòng 2','total([1, 2, 3])']],
+'addwatch':[['Biểu thức Watch gợi ý','cart.length  ·  sum  ·  items.reduce((a,b)=>a+b)']],
+'dbg:over':[['Kích hoạt lại để thử Step over','calculate()']],
+'tab:network':[['Gọi API thành công','fetch("/api/data").then(r => r.json()).then(console.log)'],['Gọi API lỗi 404','fetch("/api/missing").then(r => console.log("status:", r.status))'],['Gửi POST có payload (xem tab Payload)','fetch("/api/data", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ten: "An"})})']],
+'throttle':[['Bật Slow 3G ở ô trên rồi đo thời gian gọi API','(async () => { const t = performance.now(); await fetch("/api/data"); return Math.round(performance.now() - t) + " ms" })()']],
+'netsel':[['Đọc response bằng async/await','(async () => (await (await fetch("/api/data")).json()).total)()']],
+'tab:performance':[['Đo thời gian chạy một đoạn code','(() => { const t = performance.now(); for (let i = 0; i < 3e7; i++); return Math.round(performance.now() - t) + " ms" })()'],['Tạo long task (> 50 ms) khi đang Record','(() => { const e = performance.now() + 120; while (performance.now() < e); return "xong" })()'],['performance.mark / measure','performance.mark("a"); total(cart); performance.mark("b"); performance.measure("total", "a", "b"); performance.getEntriesByName("total")[0].duration']],
+'tab:memory':[['Tạo thêm bộ nhớ bị giữ (leak)','makeLeak(); leak.length'],['Giải phóng để so sánh snapshot','leak.length = 0'],['Xem heap hiện tại (Chrome)','performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) + " MB" : "không hỗ trợ"']],
+'tab:application':[['Địa chỉ origin hiện tại','location.origin']],
+'appsel:ls':[['Ghi / đọc / xoá','localStorage.setItem("user", "An"); localStorage.getItem("user")'],['Lưu object bằng JSON','localStorage.setItem("cfg", JSON.stringify({dark: true})); JSON.parse(localStorage.getItem("cfg"))'],['Liệt kê tất cả key','Object.keys(localStorage)'],['Xoá một key / xoá hết','localStorage.removeItem("theme"); localStorage.length']],
+'appsel:ls:o':[['Sửa token rồi xem bảng đổi','localStorage.setItem("token", "xyz789")'],['Xoá toàn bộ','localStorage.clear()']],
+'appsel:ss':[['Lưu và đọc theo tab','sessionStorage.setItem("buoc", "2"); sessionStorage.getItem("buoc")'],['Xem tất cả','JSON.stringify(sessionStorage)']],
+'appsel:ss:o':[['Thêm key','sessionStorage.setItem("temp", Date.now())'],['Xoá hết','sessionStorage.clear()']],
+'appsel:cookie':[['Đặt cookie mới','document.cookie = "a=1; path=/"; document.cookie'],['Cookie có hạn dùng (60 giây)','document.cookie = "tam=1; max-age=60; path=/"; document.cookie'],['Xoá cookie','document.cookie = "a=; max-age=0; path=/"; document.cookie']],
+'appsel:cookie:o':[['Đọc cookie (HttpOnly bị ẩn)','document.cookie'],['Đặt cookie Secure + SameSite','document.cookie = "t=1; path=/; secure; samesite=strict"; document.cookie']],
+'appsel:idb':[['Liệt kê database','indexedDB.databases ? indexedDB.databases() : "không hỗ trợ"'],['Mở/tạo database thật','new Promise(r => { const q = indexedDB.open("demo-db", 1); q.onupgradeneeded = () => q.result.createObjectStore("items"); q.onsuccess = () => r(q.result.name + " v" + q.result.version); q.onerror = () => r("lỗi: " + q.error.name) })']],
+'appsel:cache':[['Mở cache và thêm mục','caches.open("v1").then(c => c.put("/hello", new Response("hi"))).then(() => caches.keys())']],
+'appsel:sw':[['Kiểm tra hỗ trợ / danh sách worker','navigator.serviceWorker ? navigator.serviceWorker.getRegistrations() : "không hỗ trợ"']],
+'appsel:storage':[['Ước lượng dung lượng đã dùng','navigator.storage && navigator.storage.estimate ? navigator.storage.estimate() : "không hỗ trợ"']],
+'appsel:manifest':[['Có thẻ manifest chưa?','document.querySelector("link[rel=manifest]")']],
+'appsel:notif':[['Quyền thông báo hiện tại','typeof Notification !== "undefined" ? Notification.permission : "không hỗ trợ"']],
+'appsel:push':[['Hỗ trợ Push?','"PushManager" in window']],
+'appsel:bf':[['Lắng nghe pageshow để biết trang có lấy từ bfcache không','window.addEventListener("pageshow", e => console.log("từ bfcache:", e.persisted))']],
+'appsel:rep':[['Quan sát báo cáo deprecation','typeof ReportingObserver !== "undefined" ? (new ReportingObserver(r => console.log(r), {buffered: true}).observe(), "đang quan sát") : "không hỗ trợ"']],
+'appsel:frame':[['Thông tin frame chính','({href: location.href, iframes: frames.length, secure: isSecureContext})']],
+'tab:security':[['Giao thức và secure context','({protocol: location.protocol, secure: window.isSecureContext})']],
+'tab:lighthouse':[['Kiểm tra nhanh vài mục SEO/a11y','({title: document.title, lang: document.documentElement.lang, description: !!document.querySelector("meta[name=description]")})']]
+};
+function snipHtml(key){const L=SNIP[key];if(!L)return '';if(SNIPREG.length>400)SNIPREG.length=0;
+ return '<div class="snip"><span class="t">⌨ JS thao tác (bấm ▶ để chạy, kết quả cũng ghi ở Console):</span>'+L.map(([lbl,code])=>{SNIPREG.push(code);const i=SNIPREG.length-1;return `<div class="sn" title="${esc(lbl)}"><code>${esc(lbl)}:\n${esc(code)}</code><span class="run" data-act="runsnip" data-i="${i}">▶ Chạy</span></div>${SNIPOUT[code]?`<div class="snout">→ ${SNIPOUT[code]}</div>`:''}`;}).join('')+'</div>';}
+function showHelp(h,key){if(!h)return;lastKey=key||lastKey;const i=h.indexOf('|');helpbar.innerHTML='<b>📘 '+esc(h.slice(0,i))+'</b> — '+esc(h.slice(i+1))+snipHtml(key);}
+function helpReset(){const k='tab:'+S.tab;showHelp(HELP[k],k);}
+on(dtwrap,'mouseover',e=>{if(helpOn&&!helpbar.contains(e.target)){const k=helpKey(e.target);if(k&&k!==lastKey)showHelp(HELP[k],k);}});
+on(dtwrap,'click',e=>{if(helpOn&&!helpbar.contains(e.target)){const k=helpKey(e.target);if(k)showHelp(HELP[k],k);}},true);
+function helpHtml(k){const h=HELP[k];if(!h)return '';const i=h.indexOf('|');return '<b>📘 '+esc(h.slice(0,i))+'</b><br>'+esc(h.slice(i+1))+snipHtml(k);}
+function snipText(n,code){const added=C.lines.slice(n).filter(l=>l.t!=='in');SNIPOUT[code]=esc(added.slice(0,4).map(l=>l.h.replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').slice(0,160)).join('\n')||'(không có kết quả)');}
+ACT.runsnip=(t)=>{const code=SNIPREG[+t.dataset.i];if(!code)return;const n=C.lines.length;evalExpr(code);snipText(n,code);if(HELP[lastKey])showHelp(HELP[lastKey],lastKey);refresh();
+ setTimeout(()=>{snipText(n,code);if(HELP[lastKey])showHelp(HELP[lastKey],lastKey);},700);};
+ACT.helptoggle=()=>{helpOn=!helpOn;helpbar.classList.toggle('off',!helpOn);refreshTabs();};
+
+window.__dt={wrap,TR_CALC,evalExpr,pageReload};
+/* init */
+applyDock();rebuildForce();E.exp=new Set([HTML,BODY,q('.btnrow')]);E.sel=q('#demo-text');netLoad();refreshTabs();helpReset();
+})();
+</script>
+<script id="appjs">function total(items) {
+  return items.reduce((a, b) => a + b);
+}
+
+const cart = [10, 20, 30];
+console.log(total(cart)); // 60
+
+function calculate() {
+  const sum = total(cart);
+  console.log('Tổng giỏ hàng:', sum);
+  return sum;
+}
+
+function loadData(path) {
+  fetch(path)
+    .then(r => r.json())
+    .then(d => console.log('Dữ liệu:', d))
+    .catch(e => console.error(e.message));
+}
+
+function causeError() {
+  setTimeout(() => missingFunction(), 0);
+}
+
+var leak = [];
+function makeLeak() {
+  leak.push(new Array(100000).fill(Math.random()));
+  console.log('Đã giữ', leak.length, 'mảng lớn trong bộ nhớ');
+}
+
+window.addEventListener('resize', function onResize() {});
+document.getElementById('demo-btn').addEventListener('click', function trackClick() {});
+//# sourceURL=app.js
+</script>
+<script>__dt.wrap('calculate',__dt.TR_CALC);</script>
+
+<div class="guide-wrap">
+  <h2>Phím tắt nhanh (áp dụng mọi panel)</h2>
+  <table>
+    <tr><th>Phím tắt</th><th>Chức năng</th></tr>
+    <tr><td><kbd>F12</kbd> / <kbd>Ctrl+Shift+I</kbd></td><td>Mở/đóng DevTools</td></tr>
+    <tr><td><kbd>Ctrl+Shift+J</kbd></td><td>Mở thẳng Console</td></tr>
+    <tr><td><kbd>Ctrl+Shift+C</kbd></td><td>Bật chế độ Inspect element</td></tr>
+    <tr><td><kbd>Ctrl+Shift+M</kbd></td><td>Bật Device Toolbar (giả lập mobile)</td></tr>
+    <tr><td><kbd>Ctrl+Shift+P</kbd></td><td>Mở Command Menu (chạy mọi lệnh DevTools)</td></tr>
+    <tr><td><kbd>Ctrl+L</kbd></td><td>Xoá Console</td></tr>
+    <tr><td><kbd>F8</kbd> / <kbd>F10</kbd> / <kbd>F11</kbd></td><td>Resume / Step over / Step into (khi debug)</td></tr>
+  </table>
+
+  <h2>Cú pháp Console hay dùng</h2>
+  <table>
+    <tr><th>Lệnh</th><th>Công dụng</th></tr>
+    <tr><td><code>console.log/warn/error(x)</code></td><td>In log theo mức độ</td></tr>
+    <tr><td><code>console.table(arr)</code></td><td>Hiện mảng/object dạng bảng</td></tr>
+    <tr><td><code>console.group()/groupEnd()</code></td><td>Nhóm log lại</td></tr>
+    <tr><td><code>$0, $1, $2…</code></td><td>Phần tử vừa chọn trong Elements (gần nhất = $0)</td></tr>
+    <tr><td><code>$(sel) / $$(sel)</code></td><td>querySelector / querySelectorAll rút gọn</td></tr>
+    <tr><td><code>monitor(fn) / unmonitor(fn)</code></td><td>Log mỗi lần hàm được gọi</td></tr>
+    <tr><td><code>copy(obj)</code></td><td>Copy giá trị vào clipboard</td></tr>
+    <tr><td><code>clear()</code></td><td>Xoá console</td></tr>
+  </table>
+
+  <h2>Mẹo nhanh</h2>
+  <p>• Gõ thử <code>console.table([1,2,3])</code>, <code>$0</code>, hoặc <code>$$(".x")</code> vào ô Console phía trên để xem phản hồi mô phỏng.<br>
+  • Bấm từng nút trong mỗi tab để đọc giải thích công dụng + cú pháp ngay bên dưới.<br>
+  • Đây là bản mô phỏng UI để học; hãy mở DevTools thật (F12) trên trình duyệt để thực hành trên dữ liệu thật.</p>
+</div>
+
+</body>
+</html>
